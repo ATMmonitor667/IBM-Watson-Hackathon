@@ -1,0 +1,194 @@
+IBM AI BUILDERS CHALLENGE WITH IBM BOB - RESEARCH BRIEF
+Verified: July 13, 2026
+
+IDENTIFICATION
+--------------
+This repository appears to target the AI Builders Challenge with IBM Bob, sponsored by
+IBM SkillsBuild and organized by BeMyApp. It is a virtual student hackathon running from
+July 1 through August 31, 2026, with separate July and August competitions.
+
+Important clarification: this particular competition launched in 2026, so it has no
+"previous years" winners. The historical winners later in this file are from Call for Code,
+a separate long-running global challenge founded with IBM. They are included as relevant
+examples of the kinds of focused, practical projects that have won IBM-supported events.
+
+
+CURRENT JULY CHALLENGE
+----------------------
+Title: Reimagine Creative Industries with AI
+Deadline: July 31, 2026 at 11:59 PM Eastern Time
+
+Official prompt, short excerpt:
+"Build solutions that help creators work smarter, explore new forms of expression, and
+unlock new creative possibilities."
+
+Actionable restatement:
+Create an AI-powered product that expands or improves how people make content, tell
+stories, design experiences, develop ideas, or participate in creative work. The strongest
+interpretation treats AI as a creative collaborator while keeping meaningful human control.
+
+Official example directions:
+- AI creative partners
+- Storytelling and content-creation tools
+- Multimedia or multimodal experiences
+- Creative ideation platforms
+- Interactive media
+- Personalized creative assistants
+
+Questions the organizers want teams to consider:
+- How can AI enhance creativity?
+- How can AI help people create faster?
+- How can AI enable genuinely new creative experiences?
+
+
+WILDCARD CHALLENGE ("WILD CARE" CORRECTION)
+--------------------------------------------
+Title: Build Intelligent Systems for the Future of Work
+Availability: A team may choose this instead of the monthly theme in July or August.
+
+Actionable prompt restatement:
+Build an intelligent system that acts as a useful collaborator for people or teams. It
+should improve planning, coordination, decisions, execution, or outcomes through responsible
+automation and decision support. A team submits one solution for the month: either the
+monthly challenge or the Wildcard Challenge, not both.
+
+Official example directions:
+- Workflow automation
+- AI co-workers
+- Project-planning assistants
+- Decision-intelligence platforms
+- Operations and productivity systems
+- Business-process orchestration
+
+Questions the organizers want teams to consider:
+- How can AI reduce repetitive work?
+- How can AI improve decision-making?
+- How can AI help teams achieve outcomes faster?
+
+
+ENTRY AND SUBMISSION CHECKLIST
+------------------------------
+- Eligible entrants are higher-education students age 18 or older, subject to the official
+  eligibility policy and country restrictions.
+- Team size is 1-5; solo entries are allowed.
+- Use IBM Bob as the required primary development tool and core project component.
+- Other IBM AI technologies may supplement IBM Bob, including watsonx, Granite, LangFlow,
+  and Docling.
+- Complete the required IBM SkillsBuild learning activity.
+- Deliver a functioning prototype or proof of concept.
+- Publish a public GitHub repository.
+- Include a clear README covering the problem, solution, selected theme, AI/technical
+  approach and architecture, and how IBM Bob was used.
+- Submit project and team details, the GitHub link, and a public demo video no longer than
+  three minutes through the challenge platform.
+- Verify the live rules before submission; official terms can change.
+
+
+JUDGING AND PRIZES
+------------------
+Published judging areas:
+- Technical execution
+- Innovation
+- Challenge fit
+- Implementation and feasibility
+- Real-world impact (listed on the event page)
+
+Each monthly challenge advertises:
+- 1st Place: USD 2,250
+- Runner Up: USD 1,250
+- Most Innovative: USD 750
+- Best Use of Technology: USD 750
+
+One project across both monthly challenges receives the USD 5,000 Grand Prize.
+Total advertised prize pool: USD 15,000.
+
+Note: the event page and official rules use slightly different labels for the USD 750
+technology and innovation awards. Follow the latest official rules if wording matters.
+
+
+IBM-SUPPORTED PRECEDENTS: CALL FOR CODE GRAND-PRIZE WINNERS
+-----------------------------------------------------------
+These are NOT past winners of the 2026 AI Builders Challenge. They are grand-prize or
+top-category winners from the separate Call for Code Global Challenge.
+
+2018 - Project OWL
+Created a deployable mesh communications network for disaster zones where normal internet
+service is unavailable.
+
+2019 - Prometeo
+Built a wearable safety system that monitors firefighters' exposure to hazards such as
+carbon monoxide, smoke, heat, and humidity in real time.
+
+2020 - Agrolly
+Created a climate and crop-information application that helps small farmers make better
+planting and business decisions.
+
+2021 - Saaf Water
+Combined hardware and software to monitor water-quality parameters and help communities
+judge whether local water is safe and usable.
+
+2022 - GardenMate
+Connected home gardeners' excess produce with people who need food and offered sustainable
+gardening guidance using IBM Watson.
+
+2023 - AGNO (Developer category)
+Built FARMISTAR with watsonx.ai and IBM watsonx Assistant to provide small farmers with
+weather information and AI-supported crop-management strategies.
+
+2023 also used separate top categories:
+- Phyto won the University category with a geospatial and weather-analytics tool for
+  rehabilitating contaminated soil.
+- Synergy Squad won the ISV/Startup category with Offshelf, a food-expiry notification
+  solution designed to reduce household food waste.
+
+2024 - GoBang
+Built a watsonx.ai-powered educator dashboard for customizable lesson planning, worksheets,
+and recommendations, focusing on under-resourced schools in Taiwan.
+
+2025 - DuniAfrika
+Built Linda, a bilingual WhatsApp safety assistant that analyzes job-site photos and gives
+practical hazard and protective-equipment guidance to informal-sector workers in Kenya.
+
+
+PATTERNS WORTH LEARNING FROM
+----------------------------
+- Start with a specific user and an urgent, observable problem.
+- Make the AI produce an actionable outcome, not merely a generic chat response.
+- Use an interface already natural to the target user when possible.
+- Demonstrate a complete journey from input to decision or result.
+- Explain why AI is necessary and where human judgment remains in control.
+- Make feasibility, accessibility, and impact visible in the prototype and demo.
+
+
+PRIMARY SOURCES
+---------------
+2026 challenge page and current prompts:
+https://aibuilderschallenge-bob.bemyapp.com/
+
+IBM launch announcement:
+https://newsroom.ibm.com/2026-06-03-ibm-launches-global-ai-builders-challenge-with-ibm-bob-for-university-students%2C-expanding-availability-of-ibm-bob-to-20%2C000-post-secondary-institutions-worldwide
+
+Official rules (also linked from the challenge page):
+https://docs.google.com/document/d/e/2PACX-1vTvsdh2JTNvSTODxZTTmHpbtzBuKrpQxOvhvgAeyptwNL66obTRNWoAEZ-0_dGgaA/pub
+
+Call for Code winners hub (2018-2025):
+https://www.callforcode.org/global-challenges
+
+Direct yearly history pages:
+https://www.callforcode.org/2018-call-for-code
+https://www.callforcode.org/2019-call-for-code
+https://www.callforcode.org/2020-call-for-code
+https://www.callforcode.org/2021-call-for-code
+https://www.callforcode.org/2022-call-for-code
+https://www.callforcode.org/2023-call-for-code
+https://www.callforcode.org/2024-call-for-code
+https://www.callforcode.org/2025-call-for-code
+
+
+RESEARCH CAUTION
+----------------
+The challenge website is the best source for the current prompts and submission list, while
+the official rules control eligibility, deadlines, and legal requirements. One line in the
+rules appears to say the README should explain relevance "in the context of racing," which
+does not match either published theme and is likely a template error. Do not build around
+that phrase unless the organizer confirms it.
