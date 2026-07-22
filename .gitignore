@@ -1,31 +1,58 @@
-# dependencies
-/node_modules
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# next.js
+# Next.js
 /.next/
 /out/
 
-# production
-/build
+# Production output
+/build/
+/dist/
 
-# testing
-/coverage
-/playwright-report
-/test-results
+# Testing and component previews
+/coverage/
+/playwright-report/
+/test-results/
+/blob-report/
+/storybook-static/
 
-# environment files
+# Environment files and secrets
 .env*
 !.env.example
 
-# vercel
-.vercel
+# Deployment and local service state
+/.vercel/
+/.turbo/
+/supabase/.branches/
+/supabase/.temp/
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# logs and local files
+# Package-manager and runtime logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
 
+# Local certificates and credentials
+*.pem
+*.key
+*.p12

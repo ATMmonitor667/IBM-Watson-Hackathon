@@ -1,0 +1,647 @@
+STORYVERSE - FOUR-PERSON MVP WORK PLAN
+======================================
+
+Team: Rahat, Omit, Farin, Firdosi
+Schedule: 8 build days
+Assumed dates: July 22-29, 2026
+Challenge deadline: July 31, 2026 at 11:59 PM Eastern Time
+
+If the team starts after July 22, keep the Day 1-Day 8 sequence and shift the dates. The goal
+is still to finish the feature build two days before submission so July 30-31 remain emergency,
+recording, and submission buffer days.
+
+
+1. THE PRODUCT THE TEAM IS ACTUALLY BUILDING
+=============================================
+
+Storyverse is a collaborative visual-storytelling platform for a small comic or animated-short
+team. The MVP must demonstrate one reliable journey:
+
+1. Sign in and open a story project.
+2. Upload or create a character.
+3. Refine and lock the character reference.
+4. Create a short sequence of visual scenes.
+5. Generate or display one panel using project and canon context.
+6. Create an alternate branch from a decision scene.
+7. Simulate a collaborator changing that branch.
+8. Compare the alternate branch with canon.
+9. Run an AI continuity review that catches a specific contradiction.
+10. Select changes and merge them into canon.
+11. Show the updated branch tree and activity history.
+
+The demo story should use the PRD's simple flooded-city scenario: an explorer, a companion or
+stranger, a glowing compass, and one major choice. The contradiction can be that the explorer
+uses the compass after it was lost or given away in an earlier scene.
+
+DO NOT BUILD DURING THESE EIGHT DAYS:
+
+- A complete comic editor or novel editor
+- Full real-time Google Docs-style editing
+- A marketplace or advanced licensing system
+- A full 3D game-like interface
+- Voice, audio, animation, or video export
+- Public forking beyond a visual mock or future-work note
+- Dozens of AI agents
+- A full knowledge graph unless every must-have feature is already stable
+
+
+2. OWNERSHIP MODEL
+==================
+
+Each feature has one directly responsible owner. Other teammates may review or assist, but the
+owner is responsible for getting the feature integrated, tested, and demo-ready. Every person
+should work on a separate feature branch and open small pull requests instead of one large PR.
+
+Recommended branch names:
+
+- feature/rahat-platform
+- feature/omit-workspace
+- feature/farin-ai
+- feature/firdosi-character-review
+
+Merge into the shared development branch at least once per day. Do not wait until Day 7 to
+combine the four workstreams.
+
+
+3. PERSON-BY-PERSON WORK BREAKDOWN
+==================================
+
+RAHAT - TECH LEAD, DATA MODEL, BACKEND, AND INTEGRATION
+-------------------------------------------------------
+
+Primary responsibility:
+Own the technical foundation and make sure all four workstreams connect into one deployable
+application.
+
+Specific work:
+
+- Maintain the Next.js repository structure, environment variables, scripts, and deployment.
+- Create and configure the Supabase project.
+- Implement Supabase authentication and protected app routes.
+- Create the MVP database schema and migrations for profiles, projects, project members,
+  characters, character versions, branches, scenes, scene versions, AI reviews, merges, and
+  activity events.
+- Add row-level security policies suitable for a project owner and invited collaborator.
+- Build server actions or API routes for project creation, scene persistence, branch creation,
+  branch updates, selective merging, and activity history.
+- Define shared TypeScript types and Zod schemas used by the frontend and AI work.
+- Seed the flooded-city demo project so the entire demo can be restored quickly.
+- Integrate Omit's workspace, Farin's AI endpoints, and Firdosi's media/review workflow.
+- Configure Vercel deployment and production environment variables.
+- Track blockers, review pull requests, and run the full validation suite daily.
+- Keep secrets out of Git and make sure the public repository is reproducible.
+
+Main deliverables:
+
+- Working authentication and project creation
+- Database schema, seed data, and access policies
+- Branch, version, merge, and activity APIs
+- Shared application types and validation
+- Stable preview deployment
+- Final integrated build
+
+Secondary support:
+Help Farin connect AI output to stored canon facts and help Omit connect the branch tree to real
+branch and scene data.
+
+
+OMIT - STORY WORKSPACE, SCENE CANVAS, AND BRANCH TREE
+-----------------------------------------------------
+
+Primary responsibility:
+Own the main visual workspace that judges will spend most of the demo looking at.
+
+Specific work:
+
+- Build the authenticated application shell, navigation, project header, and workspace layout.
+- Build the project creation form using React Hook Form and Zod-based validation.
+- Build reusable scene cards showing panel image, dialogue, location, characters, emotional
+  beat, status, contributor, and revision information.
+- Build the scene canvas for the short ordered sequence used in the demo.
+- Implement the 2D React Flow branch tree with a visually dominant canon path and one alternate
+  timeline.
+- Support selecting a branch or scene node and opening its details.
+- Add branch status labels such as Draft, Under Review, Approved, and Merged.
+- Add the create-branch interaction from a selected scene.
+- Connect the workspace to Rahat's project, scene, branch, and activity APIs.
+- Use Zustand only for necessary client-side workspace state such as selected node, open panel,
+  and temporary edits.
+- Add loading, empty, error, and reduced-motion states.
+- Ensure keyboard navigation, visible focus, readable labels, and responsive layout.
+- If time remains after the 2D graph works, add a small Three.js overview or visual flourish.
+  The 2D React Flow graph remains the reliable fallback and primary interface.
+
+Main deliverables:
+
+- Story workspace and project header
+- Scene canvas and scene-card components
+- Interactive 2D branch tree
+- Branch creation interaction
+- Responsive and accessible workspace states
+
+Secondary support:
+Help Firdosi build the visual diff layout using the same scene-card components.
+
+
+FARIN - AI, CANON MEMORY, CONTINUITY, AND MERGE INTELLIGENCE
+-----------------------------------------------------------
+
+Primary responsibility:
+Own the AI behavior that makes Storyverse more than a visual version-control interface.
+
+Specific work:
+
+- Configure the IBM watsonx or Granite model integration behind server-only API routes.
+- Define the small canon context format used by AI: approved character traits, visual rules,
+  world facts, object state, branch-specific facts, and current scene history.
+- Build the AI continuity inspector for the demo contradiction.
+- Require structured JSON output validated with Zod instead of rendering arbitrary model text.
+- Make every continuity finding include severity, evidence, affected scene, explanation, and a
+  suggested fix.
+- Build the AI merge assistant response: branch summary, compatible changes, true conflicts,
+  two or three merge strategies, and trade-offs.
+- Ensure AI produces a preview only and never changes canon without explicit user approval.
+- Build a simple prompt-based character-refinement endpoint that returns a proposed updated
+  character description or generation instruction for Firdosi's Character Studio.
+- Build the panel-generation request format using the locked character and canon context. If
+  live image generation is unreliable, provide a deterministic demo fallback using prepared
+  original assets while still showing the context passed to the generation service.
+- Add timeout, malformed-response, rate-limit, and missing-credential handling.
+- Create deterministic mocked AI responses so the demo and tests do not depend on network
+  availability.
+- Write tests for prompt/context assembly, schema validation, and the known compass conflict.
+- Document which IBM model is used, what data is sent, and where human approval is required.
+
+Main deliverables:
+
+- Server-side watsonx/Granite integration
+- Canon context builder
+- Continuity inspector with a concrete, evidence-backed finding
+- Merge assistant with structured strategies
+- Character and panel AI request contracts
+- Deterministic demo fallback and AI tests
+
+Secondary support:
+Help Rahat define AI review storage and help Firdosi present findings and merge strategies in a
+clear, non-technical way.
+
+
+FIRDOSI - CHARACTER STUDIO, MEDIA WORKFLOW, REVIEW UI, AND DEMO EXPERIENCE
+-------------------------------------------------------------------------
+
+Primary responsibility:
+Own the visual asset workflow and the review/merge experience that completes the demo story.
+
+Specific work:
+
+- Define the visual language for Storyverse: colors, spacing, typography, panel treatment,
+  branch states, and accessible contrast.
+- Build Character Studio for image upload, character metadata, visual traits, clothing rules,
+  palette, expressions, and reference images.
+- Connect uploads to Supabase Storage and character records to Rahat's APIs.
+- Build the refine-character interaction using Farin's AI endpoint.
+- Build version comparison for the original and refined character.
+- Implement the explicit Lock Character action and clearly show which version is canon.
+- Prepare original, copyright-safe flooded-city demo assets, including the explorer, compass,
+  stranger or companion, and scene panels.
+- Build the branch comparison page with side-by-side scene panels, changed dialogue, added or
+  removed scenes, and highlighted consequences.
+- Build the continuity review panel for Farin's structured findings.
+- Build the merge-selection UI so the user can choose specific scenes or details rather than
+  accepting the whole branch.
+- Build the final confirmation state showing the accepted changes, updated canon, and activity
+  event.
+- Create the three-minute demo script, click path, backup screenshots, and short presentation
+  notes.
+- Lead visual QA and make sure every demo screen looks intentional at the recording resolution.
+
+Main deliverables:
+
+- Character Studio and locked reference workflow
+- Supabase Storage upload experience
+- Original demo characters and panels
+- Visual diff, AI review, and selective merge UI
+- Demo script, backup assets, and presentation polish
+
+Secondary support:
+Help Omit maintain a consistent design across the workspace and branch tree.
+
+
+4. SHARED RESPONSIBILITIES
+==========================
+
+ALL FOUR TEAM MEMBERS MUST:
+
+- Use IBM Bob as the primary development assistant and save evidence of meaningful Bob work.
+- Record what Bob generated, what a human changed, and how the result was tested.
+- Review at least one other person's pull request each day.
+- Add tests for important behavior in their own area.
+- Never commit credentials, private data, or generated secrets.
+- Use only original or properly licensed demo assets.
+- Keep AI suggestions reviewable and reversible.
+- Join the daily integration check and demonstrate their feature in the shared deployment.
+- Report blockers early instead of silently working around a broken contract.
+
+DAILY TEAM RHYTHM:
+
+- Start of day, 15 minutes: confirm the day's integration target and blockers.
+- Midday, 10 minutes: verify API/type contracts and adjust before work diverges.
+- End of day, 30 minutes: merge completed work, deploy, and run the core demo path.
+- End of day owner: Rahat runs build, lint, typecheck, and tests; each feature owner fixes failures
+  from their area before stopping.
+
+
+5. EIGHT-DAY EXECUTION TIMELINE
+===============================
+
+DAY 1 - JULY 22: FREEZE SCOPE AND DEFINE CONTRACTS
+--------------------------------------------------
+
+Team goal:
+Everyone can develop against agreed data shapes, routes, demo content, and visual direction.
+
+Rahat:
+- Confirm repository scripts and environment setup.
+- Create the Supabase project and draft the database schema.
+- Define shared Project, Character, Scene, Branch, AIReview, and Merge types.
+- Create the development branch and PR rules.
+
+Omit:
+- Wireframe the workspace, scene canvas, and branch tree.
+- Create the authenticated app shell and reusable layout regions.
+- Prototype the React Flow tree using hard-coded demo data.
+
+Farin:
+- Define structured schemas for canon context, continuity findings, and merge strategies.
+- Prove one watsonx/Granite request from a server-only test route.
+- Write the exact compass contradiction test case.
+
+Firdosi:
+- Define the visual system and Character Studio wireframe.
+- Finalize the explorer, companion/stranger, compass, and flooded-city demo story.
+- List every image required for the final three-minute demo.
+
+End-of-day integration gate:
+- The app runs for everyone.
+- Shared types and API contracts are agreed.
+- Hard-coded workspace and branch tree render.
+- The team can explain the demo story in under twenty seconds.
+
+
+DAY 2 - JULY 23: AUTHENTICATION, PROJECTS, AND CHARACTER FOUNDATION
+-----------------------------------------------------------------
+
+Rahat:
+- Apply database migrations and row-level security.
+- Implement sign-in, sign-out, protected routes, and project creation persistence.
+- Add seed-data tooling.
+
+Omit:
+- Finish the app shell and project creation form.
+- Connect project creation and project loading to Rahat's backend.
+- Add loading, empty, and error states.
+
+Farin:
+- Build the canon context builder and mocked AI provider interface.
+- Add missing-credential and malformed-response handling.
+- Write unit tests for context assembly.
+
+Firdosi:
+- Build Character Studio fields and image upload UI.
+- Connect image uploads to Supabase Storage.
+- Create the first polished explorer reference asset.
+
+End-of-day integration gate:
+- A user can sign in, create the demo project, upload the explorer, and reload without losing
+  data.
+
+
+DAY 3 - JULY 24: LOCKED CHARACTER AND SCENE CREATION
+---------------------------------------------------
+
+Rahat:
+- Implement character-version and scene persistence APIs.
+- Add activity events for project, character, and scene changes.
+- Seed the baseline canon facts and story scenes.
+
+Omit:
+- Build scene cards and the ordered scene canvas.
+- Implement create/edit scene interactions.
+- Connect scenes to persisted data.
+
+Farin:
+- Implement character-refinement and panel-generation request contracts.
+- Pass locked character traits and canon facts into panel requests.
+- Build deterministic fallbacks for both AI actions.
+
+Firdosi:
+- Build original/refined character comparison and Lock Character action.
+- Connect Character Studio to Farin's endpoint and Rahat's version API.
+- Prepare the canon scene panel assets.
+
+End-of-day integration gate:
+- The team can create, refine, compare, and lock the explorer.
+- At least three visual scenes appear in the workspace.
+- One panel generation request visibly uses canon context or its prepared fallback.
+
+
+DAY 4 - JULY 25: BRANCHING AND COLLABORATOR FLOW
+-----------------------------------------------
+
+Rahat:
+- Implement branch creation, scene-version copying, and collaborator update APIs.
+- Add project-member roles or a safe simulated-collaborator mechanism.
+- Add activity events for branch operations.
+
+Omit:
+- Connect the React Flow tree to real branches and scenes.
+- Add node selection, branch status, and create-branch controls.
+- Make canon and alternate paths visually distinct.
+
+Farin:
+- Ensure canon context separates approved facts from branch-specific facts.
+- Add tests proving one branch cannot silently overwrite canon context.
+- Draft branch-summary prompt and response handling.
+
+Firdosi:
+- Prepare alternate-branch scene panels and dialogue.
+- Build the collaborator-change form or interaction.
+- Verify all visuals clearly communicate the two different choices.
+
+End-of-day integration gate:
+- A user can branch from the decision scene, make a collaborator change, and see both timelines
+  in the branch tree without altering canon.
+
+
+DAY 5 - JULY 26: VISUAL DIFF AND AI REVIEW
+-----------------------------------------
+
+Rahat:
+- Implement the branch comparison data endpoint.
+- Persist AI review results and review status.
+- Support comments or one lightweight review note if time permits.
+
+Omit:
+- Help reuse scene cards in the comparison layout.
+- Add review-status indicators to the workspace and branch tree.
+- Finish keyboard and reduced-motion behavior for the graph.
+
+Farin:
+- Complete the continuity inspector and compass contradiction.
+- Complete structured branch summaries and merge strategies.
+- Add tests for successful, malformed, and timed-out model responses.
+
+Firdosi:
+- Complete the side-by-side visual diff.
+- Complete the continuity finding panel with evidence and suggested fix.
+- Add approve, request changes, and reject controls for the proposal.
+
+End-of-day integration gate:
+- The comparison page explains what changed.
+- AI reliably catches the known contradiction and cites the affected scene and canon fact.
+- The same result is available through a deterministic fallback.
+
+
+DAY 6 - JULY 27: SELECTIVE MERGE AND COMPLETE END-TO-END FLOW
+------------------------------------------------------------
+
+Rahat:
+- Implement transactional selective merge behavior.
+- Record source branch, destination branch, selected changes, reviewer, and explanation.
+- Update canon versions and activity history after approval.
+
+Omit:
+- Animate or clearly visualize the branch changing to Merged.
+- Refresh the workspace, tree, and activity feed after merge.
+- Resolve remaining integration issues across navigation and state.
+
+Farin:
+- Connect merge strategies to the review UI.
+- Confirm AI can preview recommendations but cannot execute a merge.
+- Add responsible-AI wording for uncertainty and human approval.
+
+Firdosi:
+- Finish selective scene/detail controls and merge confirmation.
+- Add the final canon state and visible before/after result.
+- Draft the first complete three-minute demo script.
+
+End-of-day integration gate:
+- The complete create-to-merge journey works in the shared deployment without manual database
+  edits.
+- No new must-have features are added after this point.
+
+
+DAY 7 - JULY 28: FEATURE FREEZE, QA, ACCESSIBILITY, AND DOCUMENTATION
+------------------------------------------------------------------
+
+Rahat:
+- Freeze feature work and coordinate bug triage.
+- Verify production deployment, clean setup, database seed/reset, and environment documentation.
+- Run security checks for secrets, access policies, and server-only AI credentials.
+- Update architecture and setup documentation.
+
+Omit:
+- Test the full flow at laptop and recording resolutions.
+- Fix layout, keyboard, focus, loading, empty, and reduced-motion issues.
+- Add or repair component tests in the workspace and graph.
+
+Farin:
+- Test AI responses against the seeded demo and failure modes.
+- Finalize AI architecture, model use, privacy, limitations, and human-oversight documentation.
+- Verify the fallback path can be enabled immediately.
+
+Firdosi:
+- Perform visual QA across every demo screen.
+- Finalize original assets, demo script, backup screenshots, and pitch language.
+- Confirm the demo communicates the product within twenty seconds.
+
+All team members:
+- Run npm run lint, npm run typecheck, npm test, and npm run build.
+- Complete one full demo rehearsal and record its duration.
+- Update the IBM Bob contribution log with human review and corrections.
+
+End-of-day integration gate:
+- Zero critical bugs.
+- Clean production build and repeatable setup.
+- Full demo finishes in no more than three minutes and fifteen seconds before final trimming.
+
+
+DAY 8 - JULY 29: FINAL POLISH, RECORDING, AND RELEASE CANDIDATE
+-------------------------------------------------------------
+
+Rahat:
+- Create and deploy the release candidate.
+- Verify the public repository, README, setup instructions, sample data, and secret scanning.
+- Prepare a local backup build and database reset instructions.
+
+Omit:
+- Fix only release-blocking UI issues.
+- Verify branch-tree readability during screen recording.
+- Prepare a static fallback screenshot of the graph.
+
+Farin:
+- Lock the tested prompts and model settings.
+- Verify live AI and deterministic fallback immediately before recording.
+- Prepare a one-sentence explanation of why AI is necessary and where humans stay in control.
+
+Firdosi:
+- Direct and record the final demo.
+- Keep the final video at three minutes or less.
+- Verify readable text, cursor visibility, audio clarity, and the closing pitch.
+
+All team members:
+- Run the complete validation suite one final time.
+- Tag the release candidate only after the demo is successfully recorded.
+- Do not add features after the recording. Fix only submission blockers.
+
+End-of-day integration gate:
+- Release candidate deployed.
+- Demo video recorded at three minutes or less.
+- Public repository and submission materials are ready.
+
+
+6. JULY 30-31 BUFFER PLAN
+=========================
+
+These are not feature-development days. Use them only for:
+
+- Re-recording a failed or unclear demo segment
+- Fixing a critical deployment or credential problem
+- Correcting README or submission information
+- Verifying the public GitHub repository from a clean machine or account
+- Checking challenge rules, links, permissions, and final submission fields
+- Submitting early enough to avoid deadline or upload problems
+
+
+7. FEATURE DEPENDENCY MAP
+=========================
+
+Rahat must provide before others can finish:
+
+- Shared types and validation schemas
+- Supabase clients, schema, and storage configuration
+- Project, character, scene, branch, review, and merge APIs
+- Seeded demo data
+
+Omit must provide before the final demo can work:
+
+- Workspace shell and scene-card components
+- Branch-tree selection and branch creation interaction
+- Refresh behavior after review and merge
+
+Farin must provide before review and merge can finish:
+
+- Canon-context contract
+- Structured continuity and merge-assistant responses
+- Deterministic AI fallback
+
+Firdosi must provide before the flow can be recorded:
+
+- Locked character workflow and original demo assets
+- Visual diff and selective merge interface
+- Final demo script and visual QA
+
+To prevent blocking, all four people must agree on TypeScript/Zod contracts on Day 1 and use
+mock data until the real service is ready. No one should wait idle for another person's API.
+
+
+8. DEFINITION OF DONE FOR EACH FEATURE
+======================================
+
+A feature is done only when:
+
+- It works in the shared development deployment, not only on one laptop.
+- It uses real persisted data or the documented deterministic demo fallback.
+- Loading, empty, error, and success states are handled.
+- Important behavior has a test.
+- Keyboard focus and text contrast are usable.
+- No secret or private data is sent to the client or committed to Git.
+- AI output is labeled, explained, and requires human approval when it affects canon.
+- The owner has updated relevant README or architecture notes.
+- Another teammate has reviewed the pull request.
+
+
+9. THREE-MINUTE DEMO OWNERSHIP
+==============================
+
+Recommended presenter: Rahat, with Firdosi directing the recording and controlling timing.
+Omit owns the reliability of the workspace/graph sequence. Farin monitors the AI request and
+keeps the deterministic fallback ready.
+
+Suggested timing:
+
+- 0:00-0:20 - Rahat explains the collaboration and continuity problem.
+- 0:20-0:40 - Rahat opens the seeded project and shows scenes, character, and canon branch.
+- 0:40-1:05 - Character Studio refines and locks the explorer.
+- 1:05-1:30 - A scene panel is created using locked character and canon context.
+- 1:30-1:55 - A collaborator branches the choice and saves the stranger.
+- 1:55-2:20 - The continuity inspector catches the impossible compass use.
+- 2:20-2:40 - The visual diff and merge assistant show options; Rahat selects changes.
+- 2:40-2:55 - The merge completes and the branch tree/activity history update.
+- 2:55-3:00 - Rahat delivers the closing Storyverse sentence.
+
+
+10. CUT ORDER IF THE TEAM FALLS BEHIND
+======================================
+
+Cut features in this order, from first to remove to last:
+
+1. Knowledge graph
+2. Three.js effects
+3. Comments and notifications
+4. Real collaborator presence
+5. Live image generation; use prepared original assets plus the saved generation request
+6. Multiple characters or more than one alternate branch
+
+Never cut:
+
+- The branch tree
+- Locked character reference
+- The concrete continuity contradiction
+- Visual comparison
+- Human-approved selective merge
+- Activity/history update
+- Deterministic demo data and AI fallback
+
+
+11. DAILY PROGRESS BOARD
+========================
+
+Use these columns:
+
+- Backlog
+- Today
+- In Progress
+- In Review
+- Blocked
+- Done in Shared Deployment
+
+Every card should include one owner, one reviewer, acceptance criteria, dependencies, and the
+day it must be demonstrated. A task is not Done when code is merely written; it is Done in
+Shared Deployment when the team can use it in the integrated demo.
+
+
+12. FINAL SUCCESS CHECKLIST
+===========================
+
+- A judge understands Storyverse in twenty seconds.
+- Authentication and seeded project loading work reliably.
+- The character can be refined and explicitly locked.
+- The same character is recognizable across prepared or generated panels.
+- A user can create an alternate branch without changing canon.
+- The branch tree clearly shows canon and the alternate timeline.
+- AI catches the specific compass contradiction with evidence.
+- The visual diff clearly explains branch changes.
+- The user selects and approves what is merged.
+- Canon, branch state, and activity history visibly update.
+- Every AI action is reviewable and reversible.
+- Reduced-motion and keyboard-accessible paths are available.
+- npm run lint passes.
+- npm run typecheck passes.
+- npm test passes.
+- npm run build passes.
+- The public README documents setup, architecture, challenge fit, AI use, responsible behavior,
+  and IBM Bob's contribution.
+- The demo video is three minutes or less.
+- The team submits before July 31 at 11:59 PM Eastern Time.
+
