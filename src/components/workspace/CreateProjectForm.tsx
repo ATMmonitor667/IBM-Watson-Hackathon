@@ -10,7 +10,8 @@ import { useProjectStore } from "@/store/projectStore";
 import type { ProjectStatus } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
-// Zod schema
+// Zod schema — no .default() so input and output types stay identical,
+// avoiding the @hookform/resolvers v5 + Zod v4 generic mismatch.
 // ---------------------------------------------------------------------------
 const projectSchema = z.object({
   title: z
@@ -19,9 +20,7 @@ const projectSchema = z.object({
     .max(80, "Title must be 80 characters or fewer"),
   description: z
     .string()
-    .max(300, "Description must be 300 characters or fewer")
-    .optional()
-    .default(""),
+    .max(300, "Description must be 300 characters or fewer"),
   status: z.enum(["In Progress", "Draft", "Complete", "Archived"] as const),
 });
 
@@ -51,7 +50,7 @@ export function CreateProjectForm({ onClose }: CreateProjectFormProps) {
     try {
       const project = await addProject({
         title: values.title,
-        description: values.description ?? "",
+        description: values.description,
         status: values.status as ProjectStatus,
       });
       onClose();

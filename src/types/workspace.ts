@@ -4,12 +4,39 @@
 
 export type SceneStatus = "canon" | "draft" | "archived";
 
+/** Card-level review/approval lifecycle status */
+export type SceneReviewStatus = "Draft" | "Under Review" | "Approved" | "Merged";
+
 export type ProjectStatus = "In Progress" | "Draft" | "Complete" | "Archived";
+
+export interface SceneContributor {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+}
 
 export interface Scene {
   id: string;
   projectId: string;
+  /** Display number shown on the badge, e.g. 1, 2, 3 */
+  sceneNumber: number;
   title: string;
+  /** Short location label, e.g. "Flooded Market District" */
+  location: string;
+  /** Dialogue or prose excerpt shown on the card */
+  dialogueExcerpt: string;
+  /** Character names appearing in this scene */
+  characters: string[];
+  /** Emotional beat label, e.g. "Tension", "Hope", "Loss" */
+  emotionalBeat: string;
+  /** Card review/approval status */
+  reviewStatus: SceneReviewStatus;
+  /** Optional panel image URL */
+  imageUrl?: string;
+  /** Contributor who last touched the scene */
+  contributor: SceneContributor;
+  /** Revision counter, e.g. 3 */
+  revision: number;
   status: SceneStatus;
   order: number;
   parentId: string | null; // null = root scene
