@@ -1,32 +1,306 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   STORYVERSE DESIGN TOKENS
+   Obsidian owns the chrome. GitHub owns the content.
+   Full specification: STORYVERSE_DESIGN.txt
+
+   Layer 1  --sv-*        the Storyverse palette (the source of truth)
+   Layer 2  --background… shadcn/ui variables, mapped onto layer 1
+   Layer 3  @theme inline exposes both as Tailwind utilities
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   LIGHT (defined so nothing hardcodes a hex; dark is the shipping theme)
+   -------------------------------------------------------------------------- */
 :root {
-  --background: #070812;
-  --foreground: #f8fafc;
+  /* Surfaces */
+  --sv-canvas: #ffffff;
+  --sv-chrome: #f6f6f6;
+  --sv-box: #ffffff;
+  --sv-box-header: #f6f8fa;
+  --sv-raised: #eeeeee;
+  --sv-overlay: #ffffff;
+  --sv-inset: #f6f8fa;
+
+  /* Borders */
+  --sv-border: #d8dee4;
+  --sv-border-muted: #e4e8ec;
+  --sv-border-strong: #afb8c1;
+
+  /* Text */
+  --sv-text: #1f2328;
+  --sv-text-muted: #656d76;
+  --sv-text-faint: #8c959f;
+  --sv-text-invert: #ffffff;
+
+  /* Accent — purple is the only brand colour: accent = canon = merged */
+  --sv-accent: #8b5cf6;
+  --sv-accent-hover: #7c3aed;
+  --sv-accent-fill: rgb(139 92 246 / 12%);
+  --sv-accent-edge: rgb(139 92 246 / 35%);
+
+  /* State (GitHub Primer semantics, mapped to story concepts) */
+  --sv-draft: #1a7f37;
+  --sv-review: #9a6700;
+  --sv-canon: #8250df;
+  --sv-conflict: #cf222e;
+  --sv-abandoned: #6e7781;
+  --sv-link: #0969da;
+
+  /* Diff */
+  --sv-add-bg: rgb(26 127 55 / 12%);
+  --sv-add-edge: rgb(26 127 55 / 40%);
+  --sv-add-text: #1a7f37;
+  --sv-del-bg: rgb(207 34 46 / 12%);
+  --sv-del-edge: rgb(207 34 46 / 40%);
+  --sv-del-text: #cf222e;
+
+  /* ---- shadcn/ui mapping ---- */
+  --background: var(--sv-canvas);
+  --foreground: var(--sv-text);
+  --card: var(--sv-box);
+  --card-foreground: var(--sv-text);
+  --popover: var(--sv-overlay);
+  --popover-foreground: var(--sv-text);
+  --primary: var(--sv-accent);
+  --primary-foreground: var(--sv-text-invert);
+  --secondary: var(--sv-raised);
+  --secondary-foreground: var(--sv-text);
+  --muted: var(--sv-raised);
+  --muted-foreground: var(--sv-text-muted);
+  /* NOTE: shadcn's --accent is the hover surface for menu/list items, NOT the
+     brand colour. The brand purple belongs to --primary. Mapping these the
+     other way round makes every dropdown item glow purple. */
+  --accent: var(--sv-raised);
+  --accent-foreground: var(--sv-text);
+  --destructive: var(--sv-conflict);
+  --destructive-foreground: #ffffff;
+  --border: var(--sv-border);
+  --input: var(--sv-border-strong);
+  --ring: var(--sv-accent);
+  /* shadcn ships 0.625rem (10px). Far too round for this design. */
+  --radius: 0.25rem;
 }
 
-* {
-  box-sizing: border-box;
+/* --------------------------------------------------------------------------
+   DARK (the default and the theme that ships)
+   -------------------------------------------------------------------------- */
+.dark {
+  --sv-canvas: #1a1a1a;
+  --sv-chrome: #202020;
+  --sv-box: #1e1e1e;
+  --sv-box-header: #252525;
+  --sv-raised: #2a2a2a;
+  --sv-overlay: #2d2d2d;
+  --sv-inset: #161616;
+
+  --sv-border: #333333;
+  --sv-border-muted: #2a2a2a;
+  --sv-border-strong: #454545;
+
+  --sv-text: #dcddde;
+  --sv-text-muted: #9a9a9a;
+  --sv-text-faint: #6e6e6e;
+  --sv-text-invert: #ffffff;
+
+  --sv-accent: #8b5cf6;
+  --sv-accent-hover: #a78bfa;
+  --sv-accent-fill: rgb(139 92 246 / 15%);
+  --sv-accent-edge: rgb(139 92 246 / 40%);
+
+  --sv-draft: #3fb950;
+  --sv-review: #d29922;
+  --sv-canon: #a371f7;
+  --sv-conflict: #f85149;
+  --sv-abandoned: #6e7681;
+  --sv-link: #58a6ff;
+
+  --sv-add-bg: rgb(63 185 80 / 15%);
+  --sv-add-edge: rgb(63 185 80 / 40%);
+  --sv-add-text: #7ee787;
+  --sv-del-bg: rgb(248 81 73 / 15%);
+  --sv-del-edge: rgb(248 81 73 / 40%);
+  --sv-del-text: #ffa198;
 }
 
-html {
-  background: var(--background);
+/* --------------------------------------------------------------------------
+   TAILWIND THEME
+   -------------------------------------------------------------------------- */
+@theme inline {
+  /* shadcn surface tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Storyverse tokens — always sv-prefixed so they never collide with shadcn */
+  --color-sv-canvas: var(--sv-canvas);
+  --color-sv-chrome: var(--sv-chrome);
+  --color-sv-box: var(--sv-box);
+  --color-sv-box-header: var(--sv-box-header);
+  --color-sv-raised: var(--sv-raised);
+  --color-sv-overlay: var(--sv-overlay);
+  --color-sv-inset: var(--sv-inset);
+
+  --color-sv-edge: var(--sv-border);
+  --color-sv-edge-muted: var(--sv-border-muted);
+  --color-sv-edge-strong: var(--sv-border-strong);
+
+  --color-sv-text: var(--sv-text);
+  --color-sv-muted: var(--sv-text-muted);
+  --color-sv-faint: var(--sv-text-faint);
+  --color-sv-invert: var(--sv-text-invert);
+
+  --color-sv-accent: var(--sv-accent);
+  --color-sv-accent-hover: var(--sv-accent-hover);
+  --color-sv-accent-fill: var(--sv-accent-fill);
+  --color-sv-accent-edge: var(--sv-accent-edge);
+
+  --color-sv-draft: var(--sv-draft);
+  --color-sv-review: var(--sv-review);
+  --color-sv-canon: var(--sv-canon);
+  --color-sv-conflict: var(--sv-conflict);
+  --color-sv-abandoned: var(--sv-abandoned);
+  --color-sv-link: var(--sv-link);
+
+  --color-sv-add-bg: var(--sv-add-bg);
+  --color-sv-add-edge: var(--sv-add-edge);
+  --color-sv-add-text: var(--sv-add-text);
+  --color-sv-del-bg: var(--sv-del-bg);
+  --color-sv-del-edge: var(--sv-del-edge);
+  --color-sv-del-text: var(--sv-del-text);
+
+  /* Type — six sizes, no more. 13px is the chrome default, and that is
+     deliberate: Obsidian's chrome is smaller than typical web UI. */
+  --text-micro: 11px;
+  --text-micro--line-height: 16px;
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+  --text-ui: 13px;
+  --text-ui--line-height: 18px;
+  --text-body: 14px;
+  --text-body--line-height: 22px;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-page: 20px;
+  --text-page--line-height: 28px;
+
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo,
+    Consolas, monospace;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* Elevation. L0 flat, L1 border only, L2 the only shadow in the system. */
+  --shadow-l2: 0 8px 24px rgb(0 0 0 / 40%);
+
+  /* Fixed chrome dimensions (see STORYVERSE_DESIGN.txt §4.2) */
+  --spacing-rail: 48px;
+  --spacing-statusbar: 24px;
+  --spacing-tabbar: 36px;
+  --spacing-toolbar: 40px;
+  --spacing-treerow: 24px;
+  --spacing-listrow: 28px;
 }
 
-body {
-  min-height: 100vh;
-  margin: 0;
-  background:
-    radial-gradient(circle at 50% 0%, rgb(91 33 182 / 24%), transparent 42%),
-    linear-gradient(180deg, #0b0d1c 0%, var(--background) 65%);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* --------------------------------------------------------------------------
+   BASE
+   -------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--sv-border);
+    box-sizing: border-box;
+  }
+
+  html {
+    background: var(--sv-canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--sv-canvas);
+    color: var(--sv-text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  /* Never removed. Every interactive element, every theme. */
+  :focus-visible {
+    outline: 2px solid var(--sv-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--sv-accent-fill);
+  }
+
+  a {
+    color: var(--sv-link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
-button {
-  font: inherit;
+/* Thin, unobtrusive scrollbars — an Obsidian tell. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
 
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sv-border);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sv-border-strong);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+/* --------------------------------------------------------------------------
+   MARKETING PAGE ONLY — not part of the app design system.
+   -------------------------------------------------------------------------- */
 .story-glow {
   position: absolute;
   width: 36rem;
@@ -36,6 +310,9 @@ button {
   filter: blur(100px);
 }
 
+/* --------------------------------------------------------------------------
+   REDUCED MOTION — all motion in this system is decorative and must vanish.
+   -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

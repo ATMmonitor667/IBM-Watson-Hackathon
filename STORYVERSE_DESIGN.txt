@@ -1,0 +1,529 @@
+STORYVERSE - DESIGN SYSTEM
+==========================
+
+Feel: Obsidian meets GitHub.
+Implementation: shadcn/ui (new-york, neutral base, CSS variables) on Tailwind v4.
+Owner: Firdosi. Consumers: everyone.
+
+Companion docs: STORYVERSE_IMPLEMENTATION_PLAN.txt (build order + ownership),
+STORYVERSE_8_DAY_TEAM_PLAN.txt (roles, definition of done).
+
+
+1. THE GOVERNING RULE
+=====================
+
+Two references, one product. The rule that keeps this from turning to mush:
+
+    OBSIDIAN OWNS THE CHROME.   GITHUB OWNS THE CONTENT.
+
+  Chrome  = the frame around the work: icon rail, collapsible sidebars, tabbed panes,
+            status bar, command palette, the file/story tree, the graph view, the density,
+            the near-black neutral palette. Copy Obsidian here.
+
+  Content = what sits inside the center pane: bordered boxes with header rows, diffs with
+            +/- gutters, state chips, review comments with evidence, avatar timelines,
+            checkbox-per-change merge selection. Copy GitHub here.
+
+Anything you are unsure about: ask "is this the frame or the work?" and follow the matching
+reference. Do not blend the two inside a single component.
+
+WHY THIS COMBINATION IS THE RIGHT ONE FOR STORYVERSE
+Obsidian's shell is already the correct information architecture for a versioned story world
+(explorer, panes, properties panel, graph). GitHub's content patterns are already the correct
+vocabulary for review and merge (diff, changed-files list, state, timeline, approve). We are
+building a review-and-merge workflow inside a knowledge workspace. Each reference is being
+used for the exact thing it is best at, and that is a sentence worth putting in the README.
+
+THE UNIFYING COINCIDENCE - USE IT
+Obsidian's accent purple (#8b5cf6) and GitHub's "merged" purple (#a371f7) are essentially the
+same colour. So in Storyverse:
+
+    purple = accent = canon = merged
+
+The main storyline, the active navigation item, the primary button, and a merged branch are
+all the same hue. This is the thread that makes the two references read as one product. Do not
+introduce a second brand colour.
+
+
+2. COLOUR
+=========
+
+Neutral-warm near-black from Obsidian. Semantic state colours from GitHub Primer.
+Dark is the default and the only theme that must be QA'd before submission.
+
+2.1 SURFACES (dark)
+-------------------
+  --sv-canvas        #1a1a1a   center pane background
+  --sv-chrome        #202020   rail, sidebars, status bar, tab bar
+  --sv-box           #1e1e1e   GitHub-style box sitting on the canvas
+  --sv-box-header    #252525   box header row
+  --sv-raised        #2a2a2a   hover, secondary button, muted fill
+  --sv-overlay       #2d2d2d   popover, dialog, command palette, dropdown
+  --sv-inset         #161616   inputs, code, diff gutter, evidence quote
+
+2.2 BORDERS
+-----------
+  --sv-border        #333333   default 1px separator and box edge
+  --sv-border-muted  #2a2a2a   rows inside a box
+  --sv-border-strong #454545   input border, focused container
+
+2.3 TEXT
+--------
+  --sv-text          #dcddde   body and titles
+  --sv-text-muted    #9a9a9a   labels, metadata, secondary
+  --sv-text-faint    #6e6e6e   timestamps, disabled, status bar
+  --sv-text-invert   #ffffff   on accent fills
+
+2.4 ACCENT
+----------
+  --sv-accent        #8b5cf6
+  --sv-accent-hover  #a78bfa
+  --sv-accent-fill   rgba(139,92,246,0.15)   selected row, active nav
+  --sv-accent-edge   rgba(139,92,246,0.40)   selected border
+
+2.5 STATE (from GitHub, mapped to story concepts)
+-------------------------------------------------
+  --sv-draft         #3fb950   green    branch state: Draft / active work
+  --sv-review        #d29922   yellow   Under review, medium-severity finding
+  --sv-canon         #a371f7   purple   Merged into canon, Approved
+  --sv-conflict      #f85149   red      Contradiction, true conflict, high severity
+  --sv-abandoned     #6e7681   gray     Abandoned, archived, rejected
+  --sv-link          #58a6ff   blue     inline links and scene references only
+
+  Each state colour is used three ways: as text, as a 40%-alpha border, and as a
+  15%-alpha background fill. Never as a solid button fill except --sv-conflict on a
+  destructive confirm.
+
+2.6 DIFF (from GitHub)
+----------------------
+  --sv-add-bg        rgba(63,185,80,0.15)
+  --sv-add-edge      rgba(63,185,80,0.40)
+  --sv-add-text      #7ee787
+  --sv-del-bg        rgba(248,81,73,0.15)
+  --sv-del-edge      rgba(248,81,73,0.40)
+  --sv-del-text      #ffa198
+
+2.7 LIGHT THEME
+---------------
+Define the variables now so nothing hardcodes a hex, but do not spend QA time on it before
+submission. canvas #ffffff, chrome #f6f6f6, box #ffffff, box-header #f6f8fa, raised #eeeeee,
+inset #f6f8fa, border #d8dee4, text #1f2328, text-muted #656d76, text-faint #8c959f.
+State colours shift to Primer light: draft #1a7f37, review #9a6700, canon #8250df,
+conflict #cf222e, link #0969da.
+
+
+3. MAPPING ONTO SHADCN
+======================
+
+shadcn is already configured correctly (new-york, neutral, cssVariables: true,
+src/app/globals.css, lucide, rsc). Do not change components.json.
+
+The single most important step is mapping our tokens onto shadcn's variable names, ONCE, in
+globals.css. Every shadcn component then inherits the Storyverse look automatically and you
+never fight it again.
+
+  shadcn variable          <- Storyverse token        note
+  --background             <- --sv-canvas
+  --foreground             <- --sv-text
+  --card                   <- --sv-box
+  --card-foreground        <- --sv-text
+  --popover                <- --sv-overlay
+  --popover-foreground     <- --sv-text
+  --primary                <- --sv-accent
+  --primary-foreground     <- --sv-text-invert
+  --secondary              <- --sv-raised
+  --secondary-foreground   <- --sv-text
+  --muted                  <- --sv-raised
+  --muted-foreground       <- --sv-text-muted
+  --accent                 <- --sv-raised            *** SEE THE WARNING BELOW ***
+  --accent-foreground      <- --sv-text
+  --destructive            <- --sv-conflict
+  --border                 <- --sv-border
+  --input                  <- --sv-border-strong
+  --ring                   <- --sv-accent
+  --radius                 <- 0.25rem
+
+  *** WARNING: shadcn's `--accent` does NOT mean "brand colour". In shadcn it is the hover
+  surface for menu items, command items, and list rows. Map it to --sv-raised. Our brand
+  purple goes to --primary. Getting this backwards makes every dropdown item glow purple and
+  is the most common way a shadcn app looks wrong.
+
+  *** RADIUS: shadcn's default --radius is 0.625rem (10px). That is far too round for this
+  design. Set it to 0.25rem (4px). Boxes override to 6px locally.
+
+Tailwind v4 structure in globals.css:
+
+    @import "tailwindcss";
+    @custom-variant dark (&:is(.dark *));
+
+    :root  { /* light values */ }
+    .dark  { /* dark values - and set class="dark" on <html> as the default */ }
+
+    @theme inline {
+      --color-background: var(--background);
+      --color-foreground: var(--foreground);
+      ... one line per shadcn var ...
+      /* plus our story-specific ones so they are usable as utilities: */
+      --color-sv-canon: var(--sv-canon);
+      --color-sv-conflict: var(--sv-conflict);
+      --color-add-bg: var(--sv-add-bg);
+      ...
+    }
+
+Keep the existing prefers-reduced-motion block at the bottom of the file. It is already
+correct and everything below depends on it.
+
+3.1 SHADCN COMPONENTS TO ADD
+----------------------------
+  npx shadcn@latest add button input textarea label badge separator scroll-area tooltip \
+    dialog dropdown-menu tabs card avatar checkbox select skeleton alert collapsible \
+    popover command resizable sheet sonner
+
+  Which reference each one serves:
+    command    -> Obsidian's Ctrl+K palette (cmdk). Exactly the right primitive.
+    resizable  -> Obsidian's draggable sidebar and pane splits (react-resizable-panels).
+    collapsible-> Obsidian's sidebar sections and explorer disclosure triangles.
+    card       -> the base for GitHub's box. Restyle it; see 5.7.
+    checkbox   -> GitHub's per-change merge selection.
+    tabs       -> GitHub's underline segmented nav inside a pane (NOT the pane tab bar,
+                  which is custom - see 5.4).
+    sonner     -> already installed and mounted in layout.tsx. Restyle to --sv-overlay.
+
+3.2 OVERRIDES TO APPLY AFTER ADDING
+-----------------------------------
+  button    default height 36px -> our sm is 28px, default 32px. Chrome uses 28px.
+  input     height 32px, bg --sv-inset, border --sv-border-strong, 13px text.
+  badge     radius 4px not 9999px. See the resolved conflict in 5.8.
+  dialog    overlay rgba(0,0,0,0.6), content bg --sv-overlay, border 1px --sv-border,
+            shadow 0 8px 24px rgba(0,0,0,0.4), radius 6px.
+  command   560px max width, item height 32px, group headings 11px uppercase --sv-text-faint.
+  tooltip   bg --sv-overlay, border 1px --sv-border, 12px text, 120ms delay.
+
+
+4. TYPOGRAPHY, GEOMETRY, MOTION
+===============================
+
+4.1 TYPE
+--------
+  sans   system stack: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+         Arial, sans-serif. (Replace the current Arial-first stack in globals.css.)
+  mono   ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace.
+
+  MONO IS SEMANTIC, NOT DECORATIVE. Use it for exactly these: branch names, scene ids, prop
+  names, field names in a diff, character version numbers, and code. Everything a user could
+  think of as an identifier. This is a GitHub habit and it is what makes props_used chips read
+  as data rather than as tags.
+
+  Scale - six sizes, no more:
+    11px  status bar, timestamps, section labels (uppercase, 0.04em tracking), kbd hints
+    12px  metadata, chips, tree rows, captions
+    13px  DEFAULT for all chrome: buttons, inputs, menus, sidebar, tabs
+    14px  content inside the center pane: scene body, explanations, form values
+    16px  pane and box titles
+    20px  page title (rare - the project title in the header, and nothing else)
+
+  Weight: 400 body, 500 labels and titles, 600 for the page title only. Never 700.
+  Line height: 1.4 in chrome, 1.6 in prose.
+
+  13px chrome is not a typo. Obsidian's chrome is smaller than typical web UI; using 14-16px
+  everywhere is the fastest way to lose the reference.
+
+4.2 GEOMETRY
+------------
+  radius     4px default (buttons, inputs, rows, chips), 6px boxes/dialogs/panes,
+             2px the accent bar on an active rail item, 9999px avatars only.
+  border     1px everywhere. Never 2px except a selected state or the canon edge in the tree.
+
+  Fixed dimensions:
+    rail            48px wide
+    left sidebar    260px default, 200 min, 400 max, resizable, collapsible
+    right sidebar   300px default, 240 min, 420 max, resizable, collapsible
+    pane tab bar    36px tall
+    pane toolbar    40px tall
+    status bar      24px tall
+    tree row        24px
+    list row        28px
+    box header      40px
+
+  Spacing scale: 4, 8, 12, 16, 24. Default gutter 8px in chrome, 16px in content.
+
+4.3 ELEVATION
+-------------
+  L0  flat, no border          chrome surfaces (rail, sidebars, status bar)
+  L1  1px border, no shadow    boxes, cards, inputs, the entire center pane
+  L2  1px border + shadow      dialog, popover, dropdown, command palette, tooltip
+                               shadow: 0 8px 24px rgba(0,0,0,0.4)
+  Nothing inline ever gets a shadow. If it does not float above the page, it has no shadow.
+
+4.4 MOTION
+----------
+  120ms ease-out   hover, focus, colour changes
+  160ms ease-out   sidebar collapse, disclosure, tab switch
+  200ms ease-out   dialog and palette entry (fade + 4px rise, nothing more)
+  Never: bounce, spring, scale-up-on-hover, staggered list entrances.
+  All of it must vanish under prefers-reduced-motion. Framer Motion is for the branch tree
+  and merge transition only, not for routine UI.
+
+4.5 FOCUS AND KEYBOARD
+----------------------
+  Focus ring: 2px solid var(--sv-accent), 2px offset, on every interactive element.
+  Never remove it. Never rely on hover alone to reveal an action that has no keyboard path.
+  Every list is arrow-navigable. Escape closes the topmost layer. Ctrl/Cmd+K opens the palette
+  from anywhere.
+
+
+5. COMPONENT CATALOGUE
+======================
+
+Each entry is tagged [O] Obsidian, [G] GitHub, or [H] hybrid.
+
+5.1 Rail [O]
+------------
+48px column, --sv-chrome, 1px right border. Icon buttons 32x32, centred, lucide at 18px,
+--sv-text-muted. Hover: --sv-raised + --sv-text. Active: --sv-accent-fill background,
+--sv-accent icon, and a 2px --sv-accent bar flush to the left edge. Tooltip appears to the
+right after 120ms. Groups separated by a 1px divider with 8px margins.
+Items: Scenes, Characters, Branch tree, World graph, Review, Activity. Settings pinned bottom.
+
+5.2 Sidebar + Section [O]
+-------------------------
+--sv-chrome, 1px border on the inner edge, resizable handle 4px (invisible until hover, then
+--sv-accent). Header 32px: 11px uppercase --sv-text-faint label, chevron on the left, actions
+revealed on hover at the right. Sections collapse (shadcn collapsible) and persist.
+
+5.3 ExplorerTree [O]
+--------------------
+24px rows. 12px indent per level. Chevron 12px, icon 14px, label 13px truncating with
+ellipsis. Hover --sv-raised. Selected --sv-accent-fill with --sv-accent text; the selection
+persists while focus is elsewhere. Row actions (+, ...) appear on hover, right-aligned, and
+are also reachable via the context menu for keyboard users.
+Used for: branches -> scenes, and for characters / props / locations.
+
+5.4 PaneTabs [O]
+----------------
+36px bar on --sv-chrome. Tab: 13px label + 14px icon + close x on hover, 8px padding, max
+200px, truncating. INACTIVE tab sits on --sv-chrome. ACTIVE tab takes --sv-canvas so it reads
+as continuous with the pane below it, with 1px --sv-border on its left/right/top. This
+"active tab merges into the content" detail is the Obsidian signature - do not substitute an
+underline indicator here. (Underline tabs are for GitHub-style nav INSIDE a pane; see 5.6.)
+
+5.5 StatusBar [O]
+-----------------
+24px, --sv-chrome, 1px top border, 11px --sv-text-faint.
+Left:  BranchChip for the active branch + its StateChip.
+Right: AI status ("watsonx: ready" / "fallback"), save state, scene count.
+Segments separated by 16px. Everything here is informational and non-interactive except the
+branch chip, which opens the branch switcher.
+
+5.6 CommandPalette [O]
+----------------------
+shadcn `command` inside a dialog. 560px, --sv-overlay, L2 shadow, opens at 20vh from top.
+Groups with 11px uppercase --sv-text-faint headings. Item 32px: icon 14px + label 13px +
+right-aligned kbd hint in 11px mono on --sv-inset. Fuzzy match highlights in --sv-accent.
+Commands: New scene, New branch, Run continuity review, Open branch tree, Lock character,
+Open diff, Merge selected, Switch branch, Toggle sidebars.
+
+5.7 Box [G] - THE WORKHORSE
+---------------------------
+GitHub's core container, and the base for most content. Build it once as
+components/ui/box.tsx wrapping shadcn card, then reuse everywhere.
+
+  Anatomy:
+    container   --sv-box, 1px --sv-border, 6px radius, overflow hidden
+    header      40px, --sv-box-header, 1px bottom border,
+                13px/500 title left, actions right (28px ghost buttons)
+    body        16px padding, or zero padding when it holds rows
+    row         12px vertical / 16px horizontal, 1px --sv-border-muted between rows,
+                last row has none. Hover --sv-raised when the row is interactive.
+    footer      --sv-box-header, 1px top border, used for primary actions
+
+Used for: the changed-scenes list, the review panel, canon fact groups, merge selection,
+character version lists, and every empty state.
+
+5.8 StateChip [G] - RESOLVED CONFLICT
+-------------------------------------
+GitHub's state pills are fully rounded; Obsidian has nothing pill-shaped. Resolution: keep
+GitHub's icon + colour semantics, take the app's 4px radius. Consistency wins over literal
+imitation, and the icon plus colour already carries the GitHub reading.
+
+  20px tall, 4px radius, 6px horizontal padding, 11px/500 label, 12px lucide icon.
+  Background = state colour at 15%, border 1px at 40%, text = the state colour.
+
+  Draft        --sv-draft      icon: circle-dot
+  Under review --sv-review     icon: eye
+  Approved     --sv-canon      icon: check
+  Merged       --sv-canon      icon: git-merge
+  Abandoned    --sv-abandoned  icon: circle-slash
+  Conflict     --sv-conflict   icon: alert-triangle
+
+5.9 BranchChip [G]
+------------------
+GitHub's branch reference. 12px mono, git-branch icon 12px, --sv-inset background, 1px
+--sv-border, 4px radius, 4px/6px padding. The canon branch additionally gets --sv-canon text
+and a 40% --sv-canon border, so "main" always reads as canon at a glance.
+
+5.10 SceneCard [H]
+------------------
+A GitHub box with Obsidian density. The most-seen component in the demo.
+
+  panel image   16:9, object-cover, --sv-inset placeholder with the scene title while assets
+                are pending, 6px radius on the top corners only
+  title         14px/500, one line, ellipsis
+  meta row      12px --sv-text-muted: location  ·  time of day  ·  N characters
+  props         mono 11px chips on --sv-inset with 1px --sv-border, 2px radius
+  beat          12px --sv-text-muted, two-line clamp
+  footer        16px avatar + 12px author + version chip (mono "v2") + relative time faint
+
+  States:
+    default     1px --sv-border
+    hover       --sv-border-strong, 120ms
+    selected    1px --sv-accent-edge + --sv-accent-fill tint on the footer
+    conflicted  2px --sv-conflict left border + a Conflict StateChip top-right of the image
+    added       2px --sv-add-edge left border (in diff context)
+    removed     2px --sv-del-edge left border + 60% opacity (in diff context)
+
+5.11 DiffView [G] - THE MOST GITHUB-FLAVOURED SURFACE
+-----------------------------------------------------
+Mirrors GitHub's "Files changed", with scenes instead of files.
+
+  Toolbar   "3 scenes changed" + BranchChip -> BranchChip + Split/Unified toggle
+            (shadcn tabs, underline style) + "Select all"
+  Per scene A Box. Header: checkbox + scene title + StateChip (changed/added/removed) +
+            collapse chevron.
+            Body split 50/50: canon panel left, branch panel right, 1px divider.
+            Below the panels, a field-diff list - one row per changed field:
+              field label   11px mono --sv-text-muted (dialogue, props_used, action, beat)
+              old value     --sv-del-bg, 2px --sv-del-edge left gutter, a "-" in 11px mono
+              new value     --sv-add-bg, 2px --sv-add-edge left gutter, a "+" in 11px mono
+            Unchanged fields are collapsed behind a "3 unchanged fields" muted toggle,
+            exactly like GitHub's collapsed context lines.
+
+The props_used row is the one that visibly carries the compass contradiction. Make sure it is
+never the row that gets collapsed.
+
+5.12 FindingCard [G]
+--------------------
+GitHub's review comment, adapted for AI output.
+
+  2px left border in the severity colour, --sv-box, 6px radius.
+  Header:   severity StateChip + kind label (12px muted) + affected scene link (mono, right)
+  Body:     explanation, 14px, 1.6 line height
+  Evidence: --sv-inset block, 3px --sv-border-strong left border, 12px mono, each entry a
+            scene link plus the quoted field value. GitHub's blockquote pattern.
+  Broken:   "Breaks canon fact:" 11px uppercase faint, then the statement + "established in
+            S2" as a link
+  Fix:      a bordered inset box, 13px, prefixed "Suggested fix"
+  Footer:   sparkles icon + "AI proposal - not applied" in 11px --sv-text-faint, plus the
+            source tag (rule / model / rule+model)
+
+  That footer is not decoration. Visible "AI proposes, human disposes" labelling is a judged
+  criterion in this challenge. It appears on every AI-authored surface without exception.
+
+5.13 Timeline / ActivityFeed [G]
+--------------------------------
+GitHub's PR timeline. A 2px --sv-border vertical line at x=15px. Each event: a 32px circle on
+the line (avatar, or a --sv-raised circle with a 14px kind icon), then the row - actor name
+13px/500, verb 13px --sv-text-muted, subject as a link, relative time 11px --sv-text-faint
+right-aligned. Merge events get a --sv-canon circle and a git-merge icon.
+
+5.14 MergeSelectionList [G]
+---------------------------
+A Box. Header: "Select changes to merge into canon" + select-all checkbox + count.
+Rows: checkbox + scene title + one-line change summary + StateChip.
+Footer: primary "Merge N selected changes" (accent fill) + ghost "Cancel".
+The button label always states the count. A merge is never a single unlabelled click.
+
+5.15 BranchTree [H] - Obsidian graph view meets GitHub's network graph
+----------------------------------------------------------------------
+React Flow on --sv-canvas with a 24px dot grid in --sv-border-muted (the Obsidian graph
+backdrop). Nodes are 160x90 mini scene cards: thumbnail + 12px title, 1px --sv-border, 4px
+radius, --sv-box. Selected: 2px --sv-accent-edge.
+
+  Canon edge      2px solid --sv-accent, straight horizontal spine
+  Alternate edge  1.5px dashed --sv-text-muted, curving away in Y
+  Merged edge     2px solid --sv-canon curving back into the spine - GitHub's merge-commit
+                  shape, and the visual payoff of the whole demo
+  Branch label    a BranchChip + StateChip floating at each branch head
+  Controls        bottom-right, ghost 28px buttons: fit view, zoom, reset. No React Flow
+                  default styling - it does not match anything here.
+
+5.16 CanonPanel (right sidebar) [O]
+-----------------------------------
+Obsidian's properties + backlinks panel. Collapsible sections:
+  Properties          key/value rows; key 11px mono --sv-text-muted, value 13px
+  Canon facts in play prop/character icon + statement + "established in S2" link
+  Continuity          compact FindingCards
+  Revision history    compact Timeline
+
+5.17 EmptyState + Skeleton [H]
+------------------------------
+Empty: centred in the box, 32px --sv-text-faint icon, 14px/500 title, 13px muted description,
+one primary action. GitHub's blankslate.
+Skeleton: --sv-raised, 4px radius, shimmer 1.5s - and no shimmer at all under reduced motion.
+
+
+6. DO NOT
+=========
+
+- No gradients, glows, or glassmorphism. Delete `.story-glow` when the app shell lands; it can
+  stay only on the signed-out marketing page.
+- No pill-shaped buttons or chips (see the resolved conflict in 5.8).
+- No shadows on inline content.
+- No second brand colour. Purple is the only one.
+- No 16px base font in chrome.
+- No shadcn component shipped with its default radius or default height.
+- No emoji in the UI. lucide only.
+- No "commit", "pull request", "repo", or "merge conflict" in user-facing copy. Use Canon,
+  Timeline, What-if branch, Story Proposal, Canon Review, Contradiction. GitHub is the
+  mechanism; it is not the vocabulary. (The risk register calls this out - a GitHub clone
+  loses points for originality.)
+- No AI output rendered without the "AI proposal - not applied" label and its source tag.
+
+
+7. WHAT TO IMPLEMENT FIRST
+==========================
+
+One slice: the design foundation and the shell, with zero data. Everything else in the plan
+is built inside this, so it comes first, and it is also the fastest way to see whether the
+Obsidian-meets-GitHub feel actually works.
+
+This is track step C1 + W1 in STORYVERSE_IMPLEMENTATION_PLAN.txt.
+
+  1. globals.css
+     Replace the marketing theme with the full token set from sections 2 and 4, the shadcn
+     variable mapping from section 3, and a Tailwind v4 @theme inline block. Keep the
+     reduced-motion block. Set the sans/mono stacks. Default the app to dark.
+
+  2. shadcn primitives
+     Run the add command from 3.1 and apply the overrides in 3.2.
+
+  3. Move the landing page
+     src/app/page.tsx -> src/app/(marketing)/page.tsx so "/" still works untouched, and the
+     app shell can own its own layout.
+
+  4. The shell - src/app/(app)/layout.tsx + src/components/shell/
+     Rail, LeftSidebar, RightSidebar, PaneTabs, StatusBar, wired with resizable panels.
+     Hardcoded content: the six rail items, a fake branch/scene tree, two dummy tabs, a
+     status bar showing "main / Canon".
+
+  5. Workspace store - src/lib/store/workspace.ts
+     Zustand with localStorage persistence: sidebar open/closed, sidebar widths, open tabs,
+     active tab, selected scene id.
+
+  6. Component gallery - src/app/(app)/design/page.tsx
+     Every component from section 5 that does not need data, rendered on one page: Box,
+     StateChip in all six states, BranchChip, buttons, inputs, a static SceneCard, an
+     EmptyState, a skeleton, a FindingCard with fake content, and a static field-diff row.
+     This is how the team agrees the design is right before four people build on top of it,
+     and it is a fast way to spot a token that is wrong.
+
+  7. Command palette - Ctrl/Cmd+K
+     shadcn command in a dialog with the section 5.6 command list wired to no-ops. Cheap now,
+     and it makes the shell feel finished from day one.
+
+  DONE WHEN: /design and /p/demo render in Obsidian colours at Obsidian density, both sidebars
+  resize/collapse and survive a reload, tabs switch, Ctrl+K opens the palette, and the gallery
+  reads as one coherent system. No Supabase, no fixtures, no AI.
+
+  NOT IN THIS SLICE: real data, auth, the branch tree (React Flow), Character Studio, the
+  real DiffView, anything watsonx. Those come after the contract and fixtures land.
