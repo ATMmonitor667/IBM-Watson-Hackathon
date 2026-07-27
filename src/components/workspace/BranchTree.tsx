@@ -23,14 +23,23 @@ const nodeTypes = {
 };
 
 // ---------------------------------------------------------------------------
+// Reduced-motion detection (evaluated once per module load in the browser)
+// ---------------------------------------------------------------------------
+const prefersReduced =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------------------------------------------------------------------------
 // Helpers: convert Branch[] → React Flow nodes + edges
 // ---------------------------------------------------------------------------
 function sceneToNode(
   scene: Scene,
+  branchId: string,
   isCanon: boolean,
   selectedSceneId: string | null,
   xPos: number,
   yPos: number,
+  onActivate: () => void,
 ): Node<BranchNodeData> {
   return {
     id: scene.id,
@@ -41,6 +50,10 @@ function sceneToNode(
       sceneNumber: scene.sceneNumber,
       reviewStatus: scene.reviewStatus as SceneReviewStatus,
       isSelected: selectedSceneId === scene.id,
+      continuityFlag: scene.continuityFlag,
+      branchId,
+      isCanon,
+      onActivate,
     },
   };
 }
@@ -48,6 +61,7 @@ function sceneToNode(
 function buildGraph(
   branches: Branch[],
   selectedSceneId: string | null,
+  onActivate: (id: string) => void,
 ): { nodes: Node<BranchNodeData>[]; edges: Edge[] } {
   const nodes: Node<BranchNodeData>[] = [];
   const edges: Edge[] = [];
@@ -67,7 +81,17 @@ function buildGraph(
       if (seenIds.has(scene.id)) return;
       seenIds.add(scene.id);
 
-      nodes.push(sceneToNode(scene, isCanon, selectedSceneId, xBase, idx * 130 + 40));
+      nodes.push(
+        sceneToNode(
+          scene,
+          branch.id,
+          isCanon,
+          selectedSceneId,
+          xBase,
+          idx * 130 + 40,
+          () => onActivate(scene.id),
+        ),
+      );
 
       // Edge from parentId or previous in sequence
       const sourceId = scene.parentId ?? (idx > 0 ? sorted[idx - 1].id : null);
@@ -100,17 +124,23 @@ export function BranchTree({ branches }: BranchTreeProps) {
   const selectNode      = useSceneStore((s) => s.selectNode);
   const openPanel       = useUiStore((s) => s.openPanel);
 
-  const { nodes, edges } = useMemo(
-    () => buildGraph(branches, selectedSceneId),
-    [branches, selectedSceneId],
-  );
-
-  const onNodeClick: NodeMouseHandler = useCallback(
-    (_evt, node) => {
-      selectNode(node.id);
+  // Shared activation handler used by both mouse clicks and keyboard events
+  const activateNode = useCallback(
+    (id: string) => {
+      selectNode(id);
       openPanel("scene-detail");
     },
     [selectNode, openPanel],
+  );
+
+  const { nodes, edges } = useMemo(
+    () => buildGraph(branches, selectedSceneId, activateNode),
+    [branches, selectedSceneId, activateNode],
+  );
+
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (_evt, node) => activateNode(node.id),
+    [activateNode],
   );
 
   return (
@@ -120,9 +150,14 @@ export function BranchTree({ branches }: BranchTreeProps) {
       nodeTypes={nodeTypes}
       onNodeClick={onNodeClick}
       fitView
-      fitViewOptions={{ padding: 0.3 }}
+      fitViewOptions={{ padding: 0.3, duration: prefersReduced ? 0 : 300 }}
       nodesDraggable={false}
       nodesConnectable={false}
+      // Disable animated pan/zoom when user prefers reduced motion
+      panOnDrag={!prefersReduced}
+      zoomOnScroll={!prefersReduced}
+      zoomOnPinch={!prefersReduced}
+      zoomOnDoubleClick={!prefersReduced}
       proOptions={{ hideAttribution: true }}
     >
       <Background color="#334155" gap={20} size={1} />

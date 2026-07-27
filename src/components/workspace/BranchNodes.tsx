@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { TriangleAlert } from "lucide-react";
 import type { SceneReviewStatus } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
@@ -22,17 +23,45 @@ export interface BranchNodeData {
   sceneNumber: number;
   reviewStatus: SceneReviewStatus;
   isSelected: boolean;
+  /** AI continuity finding — shows ⚠ icon when present */
+  continuityFlag?: string;
+  /** Branch this node belongs to — used by the detail panel for merge */
+  branchId: string;
+  isCanon: boolean;
+  onActivate?: () => void; // keyboard + click handler injected by BranchTree
   [key: string]: unknown; // satisfies React Flow's NodeProps constraint
 }
+
+// ---------------------------------------------------------------------------
+// Reduced-motion detection (evaluated once per module load in the browser)
+// ---------------------------------------------------------------------------
+const prefersReduced =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ---------------------------------------------------------------------------
 // Canon node — solid blue border
 // ---------------------------------------------------------------------------
 export const CanonNode = memo(function CanonNode({ data }: NodeProps) {
   const d = data as BranchNodeData;
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      d.onActivate?.();
+    }
+  }
+
   return (
     <div
-      className={`flex min-w-[140px] flex-col gap-1 rounded-lg border-2 px-3 py-2 text-center transition-shadow ${
+      role="button"
+      tabIndex={0}
+      aria-label={`Canon scene ${d.sceneNumber}: ${d.label}, status ${d.reviewStatus}${d.continuityFlag ? ", has continuity finding" : ""}`}
+      aria-pressed={d.isSelected}
+      onKeyDown={handleKeyDown}
+      className={`relative flex min-w-[140px] cursor-pointer flex-col gap-1 rounded-lg border-2 px-3 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+        prefersReduced ? "" : "transition-shadow"
+      } ${
         d.isSelected
           ? "border-blue-300 shadow-lg shadow-blue-500/30"
           : "border-blue-500"
@@ -50,6 +79,17 @@ export const CanonNode = memo(function CanonNode({ data }: NodeProps) {
         {d.reviewStatus}
       </span>
 
+      {/* AI continuity warning indicator */}
+      {d.continuityFlag && (
+        <span
+          title={d.continuityFlag}
+          aria-label={`Continuity finding: ${d.continuityFlag}`}
+          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 shadow-sm"
+        >
+          <TriangleAlert className="size-3 text-slate-900" aria-hidden="true" />
+        </span>
+      )}
+
       <Handle type="source" position={Position.Bottom} className="!bg-blue-400" />
     </div>
   );
@@ -60,9 +100,24 @@ export const CanonNode = memo(function CanonNode({ data }: NodeProps) {
 // ---------------------------------------------------------------------------
 export const AlternateNode = memo(function AlternateNode({ data }: NodeProps) {
   const d = data as BranchNodeData;
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      d.onActivate?.();
+    }
+  }
+
   return (
     <div
-      className={`flex min-w-[140px] flex-col gap-1 rounded-lg border-2 border-dashed px-3 py-2 text-center transition-shadow ${
+      role="button"
+      tabIndex={0}
+      aria-label={`Alternate scene ${d.sceneNumber}: ${d.label}, status ${d.reviewStatus}${d.continuityFlag ? ", has continuity finding" : ""}`}
+      aria-pressed={d.isSelected}
+      onKeyDown={handleKeyDown}
+      className={`relative flex min-w-[140px] cursor-pointer flex-col gap-1 rounded-lg border-2 border-dashed px-3 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+        prefersReduced ? "" : "transition-shadow"
+      } ${
         d.isSelected
           ? "border-violet-300 shadow-lg shadow-violet-500/30"
           : "border-violet-600"
@@ -80,6 +135,17 @@ export const AlternateNode = memo(function AlternateNode({ data }: NodeProps) {
       <span className={`mx-auto mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold ${STATUS_STYLES[d.reviewStatus]}`}>
         {d.reviewStatus}
       </span>
+
+      {/* AI continuity warning indicator */}
+      {d.continuityFlag && (
+        <span
+          title={d.continuityFlag}
+          aria-label={`Continuity finding: ${d.continuityFlag}`}
+          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 shadow-sm"
+        >
+          <TriangleAlert className="size-3 text-slate-900" aria-hidden="true" />
+        </span>
+      )}
 
       <Handle type="source" position={Position.Bottom} className="!bg-violet-400" />
     </div>

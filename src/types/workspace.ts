@@ -31,6 +31,12 @@ export interface Scene {
   emotionalBeat: string;
   /** Card review/approval status */
   reviewStatus: SceneReviewStatus;
+  /**
+   * AI-generated continuity finding. When present, a warning indicator is shown
+   * on the scene card and branch-tree node. No interaction required — visual only.
+   * Example: "Character Mira hasn't appeared since Scene 2 — introduce her again."
+   */
+  continuityFlag?: string;
   /** Optional panel image URL */
   imageUrl?: string;
   /** Contributor who last touched the scene */

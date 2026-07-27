@@ -2,7 +2,7 @@
 
 import type { Scene, SceneReviewStatus } from "@/types/workspace";
 import { useSceneStore } from "@/store/sceneStore";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, TriangleAlert } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Review-status badge colours
@@ -42,7 +42,7 @@ export function SceneCard({ scene }: SceneCardProps) {
       type="button"
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
-      aria-label={`Scene ${scene.sceneNumber}: ${scene.title}`}
+      aria-label={`Scene ${scene.sceneNumber}: ${scene.title}${scene.continuityFlag ? " — has continuity finding" : ""}`}
       className="group relative flex w-56 shrink-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900 text-left shadow-md transition-all hover:border-violet-500/60 hover:shadow-violet-900/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
     >
       {/* Panel image */}
@@ -64,6 +64,17 @@ export function SceneCard({ scene }: SceneCardProps) {
         <span className="absolute left-2 top-2 flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-slate-900/80 px-1.5 text-[11px] font-bold text-slate-300 backdrop-blur-sm">
           #{scene.sceneNumber}
         </span>
+
+        {/* AI continuity warning badge */}
+        {scene.continuityFlag && (
+          <span
+            title={scene.continuityFlag}
+            aria-label={`Continuity finding: ${scene.continuityFlag}`}
+            className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/90 backdrop-blur-sm"
+          >
+            <TriangleAlert className="size-3.5 text-slate-900" aria-hidden="true" />
+          </span>
+        )}
 
         {/* Emotional beat badge */}
         <span className="absolute bottom-2 right-2 rounded-full bg-slate-900/70 px-2 py-0.5 text-[10px] font-medium text-violet-300 backdrop-blur-sm">
@@ -87,6 +98,13 @@ export function SceneCard({ scene }: SceneCardProps) {
         <p className="truncate text-[11px] text-slate-500">
           {scene.characters.join(", ")}
         </p>
+
+        {/* AI continuity finding text */}
+        {scene.continuityFlag && (
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-300">
+            {scene.continuityFlag}
+          </p>
+        )}
 
         {/* Footer row */}
         <div className="mt-auto flex items-center justify-between pt-1">
