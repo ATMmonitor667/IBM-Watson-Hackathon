@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-
+import { Menu } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 function getInitials(email?: string): string {
@@ -14,11 +14,13 @@ function getInitials(email?: string): string {
   return local.slice(0, 2).toUpperCase();
 }
 
-export function AppNav({
-  user,
-}: {
+interface AppNavProps {
   user: { email?: string } | null;
-}) {
+  /** Controlled by the workspace layout on mobile */
+  onMenuToggle?: () => void;
+}
+
+export function AppNav({ user, onMenuToggle }: AppNavProps) {
   const router = useRouter();
 
   async function handleSignOut() {
@@ -28,9 +30,19 @@ export function AppNav({
   }
 
   return (
-    <nav className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-slate-900 px-5">
-      {/* Wordmark */}
+    <nav className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-slate-900 px-4 md:px-5">
+      {/* Left: hamburger (mobile only) + wordmark */}
       <div className="flex items-center gap-3">
+        {/* Hamburger — visible below md breakpoint */}
+        <button
+          type="button"
+          aria-label="Open navigation menu"
+          onClick={onMenuToggle}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 md:hidden"
+        >
+          <Menu className="size-5" />
+        </button>
+
         <span className="text-lg font-bold tracking-tight text-violet-400">
           Storyverse
         </span>

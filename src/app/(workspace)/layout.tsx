@@ -1,5 +1,4 @@
-import { AppNav } from "@/components/workspace/AppNav";
-import { WorkspaceSidebar } from "@/components/workspace/WorkspaceSidebar";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
 // TODO: re-enable auth check when sign-in page is ready (Day 2)
 const DEV_BYPASS_AUTH = true;
@@ -23,19 +22,8 @@ export default async function WorkspaceLayout({
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      {/* Top navigation */}
-      <AppNav user={user} />
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Functional sidebar */}
-        <WorkspaceSidebar />
-
-        {/* Main content slot */}
-        <main className="flex-1 overflow-auto bg-slate-950">
-          {children}
-        </main>
-      </div>
-    </div>
+    <WorkspaceShell user={user}>
+      {children}
+    </WorkspaceShell>
   );
 }

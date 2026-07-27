@@ -1,140 +1,163 @@
 "use client";
 
-import { ReactFlow, Background, Controls, type Node, type Edge } from "@xyflow/react";
+import { useCallback, useMemo } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  type Node,
+  type Edge,
+  type NodeMouseHandler,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-const initialNodes: Node[] = [
-  // ── Canon path ──────────────────────────────────────────
-  {
-    id: "scene-1",
-    position: { x: 160, y: 40 },
-    data: { label: "Scene 1\nCanon" },
-    style: {
-      background: "#1e3a5f",
-      border: "2px solid #3b82f6",
-      borderRadius: 8,
-      color: "#bfdbfe",
-      fontSize: 12,
-      fontWeight: 600,
-      padding: "8px 14px",
-      textAlign: "center",
-      whiteSpace: "pre-line",
-    },
-  },
-  {
-    id: "scene-2",
-    position: { x: 160, y: 160 },
-    data: { label: "Scene 2\nCanon" },
-    style: {
-      background: "#1e3a5f",
-      border: "2px solid #3b82f6",
-      borderRadius: 8,
-      color: "#bfdbfe",
-      fontSize: 12,
-      fontWeight: 600,
-      padding: "8px 14px",
-      textAlign: "center",
-      whiteSpace: "pre-line",
-    },
-  },
-  {
-    id: "scene-3",
-    position: { x: 160, y: 280 },
-    data: { label: "Scene 3\nCanon" },
-    style: {
-      background: "#1e3a5f",
-      border: "2px solid #3b82f6",
-      borderRadius: 8,
-      color: "#bfdbfe",
-      fontSize: 12,
-      fontWeight: 600,
-      padding: "8px 14px",
-      textAlign: "center",
-      whiteSpace: "pre-line",
-    },
-  },
+import { CanonNode, AlternateNode, type BranchNodeData } from "@/components/workspace/BranchNodes";
+import { useSceneStore } from "@/store/sceneStore";
+import { useUiStore } from "@/store/uiStore";
+import type { Branch, Scene, SceneReviewStatus } from "@/types/workspace";
 
-  // ── Alt / Draft path ────────────────────────────────────
-  {
-    id: "alt-scene-2a",
-    position: { x: 260, y: 220 },
-    data: { label: "Alt-Scene 2A\nDraft" },
-    style: {
-      background: "#1e1040",
-      border: "2px dashed #7c3aed",
-      borderRadius: 8,
-      color: "#ddd6fe",
-      fontSize: 12,
-      fontWeight: 500,
-      padding: "8px 14px",
-      textAlign: "center",
-      whiteSpace: "pre-line",
-      opacity: 0.85,
+// Register custom node types once (stable reference outside component)
+const nodeTypes = {
+  canon:     CanonNode,
+  alternate: AlternateNode,
+};
+
+// ---------------------------------------------------------------------------
+// Reduced-motion detection (evaluated once per module load in the browser)
+// ---------------------------------------------------------------------------
+const prefersReduced =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------------------------------------------------------------------------
+// Helpers: convert Branch[] → React Flow nodes + edges
+// ---------------------------------------------------------------------------
+function sceneToNode(
+  scene: Scene,
+  branchId: string,
+  isCanon: boolean,
+  selectedSceneId: string | null,
+  xPos: number,
+  yPos: number,
+  onActivate: () => void,
+): Node<BranchNodeData> {
+  return {
+    id: scene.id,
+    type: isCanon ? "canon" : "alternate",
+    position: { x: xPos, y: yPos },
+    data: {
+      label: scene.title,
+      sceneNumber: scene.sceneNumber,
+      reviewStatus: scene.reviewStatus as SceneReviewStatus,
+      isSelected: selectedSceneId === scene.id,
+      continuityFlag: scene.continuityFlag,
+      branchId,
+      isCanon,
+      onActivate,
     },
-  },
-  {
-    id: "alt-scene-2b",
-    position: { x: 260, y: 340 },
-    data: { label: "Alt-Scene 2B\nDraft" },
-    style: {
-      background: "#1e1040",
-      border: "2px dashed #7c3aed",
-      borderRadius: 8,
-      color: "#ddd6fe",
-      fontSize: 12,
-      fontWeight: 500,
-      padding: "8px 14px",
-      textAlign: "center",
-      whiteSpace: "pre-line",
-      opacity: 0.85,
+  };
+}
+
+function buildGraph(
+  branches: Branch[],
+  selectedSceneId: string | null,
+  onActivate: (id: string) => void,
+): { nodes: Node<BranchNodeData>[]; edges: Edge[] } {
+  const nodes: Node<BranchNodeData>[] = [];
+  const edges: Edge[] = [];
+  const seenIds = new Set<string>();
+
+  // Column layout: canon branch down the centre, alts offset to the right
+  const CANON_X = 140;
+  const ALT_X_OFFSET = 120; // offset per alt branch from canon x
+  let altColumnIdx = 0;
+
+  for (const branch of branches) {
+    const isCanon = branch.isCanon;
+    const xBase = isCanon ? CANON_X : CANON_X + ALT_X_OFFSET * (++altColumnIdx);
+
+    const sorted = [...branch.scenes].sort((a, b) => a.order - b.order);
+    sorted.forEach((scene, idx) => {
+      if (seenIds.has(scene.id)) return;
+      seenIds.add(scene.id);
+
+      nodes.push(
+        sceneToNode(
+          scene,
+          branch.id,
+          isCanon,
+          selectedSceneId,
+          xBase,
+          idx * 130 + 40,
+          () => onActivate(scene.id),
+        ),
+      );
+
+      // Edge from parentId or previous in sequence
+      const sourceId = scene.parentId ?? (idx > 0 ? sorted[idx - 1].id : null);
+      if (sourceId) {
+        edges.push({
+          id: `e-${sourceId}-${scene.id}`,
+          source: sourceId,
+          target: scene.id,
+          style: isCanon
+            ? { stroke: "#3b82f6", strokeWidth: 3 }
+            : { stroke: "#7c3aed", strokeWidth: 1.5, strokeDasharray: "6 4" },
+          animated: false,
+        });
+      }
+    });
+  }
+
+  return { nodes, edges };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+interface BranchTreeProps {
+  branches: Branch[];
+}
+
+export function BranchTree({ branches }: BranchTreeProps) {
+  const selectedSceneId = useSceneStore((s) => s.selectedSceneId);
+  const selectNode      = useSceneStore((s) => s.selectNode);
+  const openPanel       = useUiStore((s) => s.openPanel);
+
+  // Shared activation handler used by both mouse clicks and keyboard events
+  const activateNode = useCallback(
+    (id: string) => {
+      selectNode(id);
+      openPanel("scene-detail");
     },
-  },
-];
+    [selectNode, openPanel],
+  );
 
-const initialEdges: Edge[] = [
-  // ── Canon edges (solid blue, thick) ─────────────────────
-  {
-    id: "e1-2",
-    source: "scene-1",
-    target: "scene-2",
-    style: { stroke: "#3b82f6", strokeWidth: 3 },
-    animated: false,
-  },
-  {
-    id: "e2-3",
-    source: "scene-2",
-    target: "scene-3",
-    style: { stroke: "#3b82f6", strokeWidth: 3 },
-    animated: false,
-  },
+  const { nodes, edges } = useMemo(
+    () => buildGraph(branches, selectedSceneId, activateNode),
+    [branches, selectedSceneId, activateNode],
+  );
 
-  // ── Alt edges (dashed purple, thin) ─────────────────────
-  {
-    id: "e2-2a",
-    source: "scene-2",
-    target: "alt-scene-2a",
-    style: { stroke: "#7c3aed", strokeWidth: 1.5, strokeDasharray: "6 4" },
-    animated: false,
-  },
-  {
-    id: "e2a-2b",
-    source: "alt-scene-2a",
-    target: "alt-scene-2b",
-    style: { stroke: "#7c3aed", strokeWidth: 1.5, strokeDasharray: "6 4" },
-    animated: false,
-  },
-];
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (_evt, node) => activateNode(node.id),
+    [activateNode],
+  );
 
-export function BranchTree() {
   return (
     <ReactFlow
-      nodes={initialNodes}
-      edges={initialEdges}
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodeClick={onNodeClick}
       fitView
-      fitViewOptions={{ padding: 0.3 }}
+      fitViewOptions={{ padding: 0.3, duration: prefersReduced ? 0 : 300 }}
       nodesDraggable={false}
       nodesConnectable={false}
-      elementsSelectable={false}
+      // Disable animated pan/zoom when user prefers reduced motion
+      panOnDrag={!prefersReduced}
+      zoomOnScroll={!prefersReduced}
+      zoomOnPinch={!prefersReduced}
+      zoomOnDoubleClick={!prefersReduced}
       proOptions={{ hideAttribution: true }}
     >
       <Background color="#334155" gap={20} size={1} />
