@@ -1,4 +1,7 @@
 import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
+import Link from "next/link";
+
+import { PROJECT } from "@/lib/demo/fixtures";
 
 export default function Home() {
   return (
@@ -17,13 +20,16 @@ export default function Home() {
           review, and merge ideas while AI protects continuity and visual consistency.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <button className="inline-flex h-12 items-center gap-2 rounded-full bg-violet-500 px-6 font-medium text-white transition hover:bg-violet-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300">
+          <Link
+            href={`/p/${PROJECT.id}`}
+            className="inline-flex h-12 items-center gap-2 rounded-full bg-violet-500 px-6 font-medium text-white transition hover:bg-violet-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
+          >
             Enter the workspace
             <ArrowRight className="size-4" aria-hidden="true" />
-          </button>
+          </Link>
           <div className="inline-flex h-12 items-center gap-2 rounded-full border border-white/10 px-6 text-slate-200">
             <GitBranch className="size-4 text-cyan-300" aria-hidden="true" />
-            Next.js foundation ready
+            {PROJECT.title}
           </div>
         </div>
       </section>

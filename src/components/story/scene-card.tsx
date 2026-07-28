@@ -2,6 +2,8 @@ import { ImageIcon } from "lucide-react";
 import * as React from "react";
 
 import { StateChip } from "@/components/story/state-chip";
+import { RelativeTime } from "@/components/ui/relative-time";
+import type { SceneWithVersion } from "@/lib/types/schemas";
 import { cn } from "@/lib/utils";
 
 export type SceneCardVariant =
@@ -10,20 +12,6 @@ export type SceneCardVariant =
   | "conflicted"
   | "added"
   | "removed";
-
-export type SceneCardData = {
-  id: string;
-  title: string;
-  location: string;
-  timeOfDay: string;
-  characters: string[];
-  props: string[];
-  beat: string;
-  author: string;
-  version: number;
-  when: string;
-  imageUrl?: string;
-};
 
 const VARIANTS: Record<SceneCardVariant, string> = {
   default: "border-sv-edge hover:border-sv-edge-strong",
@@ -36,16 +24,31 @@ const VARIANTS: Record<SceneCardVariant, string> = {
 /**
  * SceneCard — a GitHub box at Obsidian density. The most-seen component in
  * the demo. See STORYVERSE_DESIGN.txt §5.10.
+ *
+ * Purely presentational: it renders a SceneWithVersion straight from the
+ * contract and takes the two id->name lookups it cannot resolve itself. That
+ * is what lets the diff view (step C5) reuse it unchanged for the side-by-side
+ * comparison.
  */
 function SceneCard({
   scene,
+  authorName,
+  characterNames = {},
   variant = "default",
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"article"> & {
-  scene: SceneCardData;
+  scene: SceneWithVersion;
+  authorName?: string;
+  characterNames?: Record<string, string>;
   variant?: SceneCardVariant;
 }) {
+  const version = scene.version;
+  const author = authorName ?? version.author_id;
+  const cast = version.characters_present.map(
+    (id) => characterNames[id] ?? id,
+  );
+
   return (
     <article
       className={cn(
@@ -58,10 +61,10 @@ function SceneCard({
       {/* Panel. Placeholder carries the scene title so the layout is legible
           long before the real artwork lands. */}
       <div className="relative aspect-video border-b border-sv-edge bg-sv-inset">
-        {scene.imageUrl ? (
+        {version.panel_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={scene.imageUrl}
+            src={version.panel_image_url}
             alt=""
             className="size-full object-cover"
           />
@@ -83,17 +86,16 @@ function SceneCard({
         </h3>
 
         <p className="truncate text-meta text-sv-muted">
-          {scene.location}
+          {version.setting}
           <span className="px-1.5 text-sv-faint">·</span>
-          {scene.timeOfDay}
+          {version.time_of_day}
           <span className="px-1.5 text-sv-faint">·</span>
-          {scene.characters.length}{" "}
-          {scene.characters.length === 1 ? "character" : "characters"}
+          {cast.length} {cast.length === 1 ? "character" : "characters"}
         </p>
 
-        {scene.props.length > 0 ? (
+        {version.props_used.length > 0 ? (
           <ul className="flex flex-wrap gap-1">
-            {scene.props.map((prop) => (
+            {version.props_used.map((prop) => (
               <li
                 key={prop}
                 className="rounded-sm border border-sv-edge bg-sv-inset px-1.5 py-0.5 font-mono text-micro text-sv-muted"
@@ -104,7 +106,9 @@ function SceneCard({
           </ul>
         ) : null}
 
-        <p className="line-clamp-2 text-meta text-sv-muted">{scene.beat}</p>
+        <p className="line-clamp-2 text-meta text-sv-muted">
+          {version.emotional_beat}
+        </p>
       </div>
 
       <footer className="flex items-center gap-2 border-t border-sv-edge-muted px-3 py-2">
@@ -112,15 +116,16 @@ function SceneCard({
           aria-hidden="true"
           className="flex size-4 items-center justify-center rounded-full bg-sv-raised text-[9px] font-medium text-sv-muted"
         >
-          {scene.author.slice(0, 1).toUpperCase()}
+          {author.slice(0, 1).toUpperCase()}
         </span>
-        <span className="truncate text-meta text-sv-muted">{scene.author}</span>
+        <span className="truncate text-meta text-sv-muted">{author}</span>
         <span className="rounded-sm border border-sv-edge bg-sv-inset px-1 font-mono text-micro text-sv-muted">
-          v{scene.version}
+          v{version.version_no}
         </span>
-        <span className="ml-auto shrink-0 text-micro text-sv-faint">
-          {scene.when}
-        </span>
+        <RelativeTime
+          iso={version.created_at}
+          className="ml-auto shrink-0 text-micro text-sv-faint"
+        />
       </footer>
     </article>
   );

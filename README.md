@@ -9,9 +9,43 @@ AI Builders Challenge with IBM Bob.
 
 ## Current status
 
-The repository contains the initial Next.js application foundation. The first product slice will
-cover the PRD's focused demo path: create a project, lock a character, create scenes, branch a
-timeline, review a continuity issue, and merge selected changes into canon.
+The workspace runs end to end against the demo story. Open
+`/p/project-drowned-compass` and you get the Obsidian-style shell — mode rail, story
+explorer, tabbed centre pane, canon panel, status bar, and a Ctrl/Cmd+K palette —
+rendering "The Drowned Compass": two timelines, a locked character reference, and the
+planted continuity contradiction.
+
+Landed:
+
+- **The shared contract** (`src/lib/types/schemas.ts`) — Zod schemas for all eleven MVP
+  entities plus the AI request/response shapes. Every type in the app is inferred from it.
+- **The demo fixtures** (`src/lib/demo/fixtures.ts`) — the whole story as typed data,
+  parsed against the contract in CI.
+- **The data seam** (`src/lib/db/queries.ts`) — the only module that reads data. It
+  returns fixtures today and Supabase later, behind `NEXT_PUBLIC_USE_FIXTURES`, so no
+  component changes when the database lands.
+- **The workspace shell**, driven entirely by that data: timeline switching, scene
+  selection, flagged scenes, canon facts in play, and the revision trail.
+
+Next: Supabase schema and auth, the branch tree, the visual diff, the two-stage continuity
+inspector against watsonx, and human-approved selective merge.
+
+## How the demo works
+
+The story is "The Drowned Compass". Wren finds a brass compass in a flooded city and, at
+the drowned stair, chooses between the compass and a trapped stranger.
+
+- **Canon (`main`)** — Wren keeps the compass and walks on.
+- **What-if (`what-if/save-the-stranger`)** — a collaborator rewrites S3 so Wren gives the
+  compass away to save the stranger.
+- **The contradiction** — the collaborator's S4 still lists `brass compass` in
+  `props_used`. The prop cannot be in two pairs of hands.
+
+That contradiction is detectable from **structured fields**, not from prose, which is what
+lets a deterministic rule engine find it and a language model explain it. The split is
+deliberate: state tracking across scenes is what rules are good at, and narrative
+explanation is what the model is good at. It also degrades gracefully — with watsonx
+unavailable the finding still appears, labelled `source: rule`.
 
 ## Stack
 
@@ -54,13 +88,31 @@ npm test           # Run the test suite once
 
 ```text
 src/
-  app/                 App Router pages, layouts, and route-local tests
-  components/          Shared product and UI components
-  hooks/               Shared React hooks
-  lib/                 Framework integrations and utilities
-    supabase/           Browser and server Supabase clients
+  app/
+    (marketing)/       Signed-out landing page
+    (app)/p/[projectId]/  The workspace. Its layout fetches the data snapshot.
+    design/            Component gallery, rendered from the real fixtures
+  components/
+    shell/             Rail, sidebars, pane tabs, status bar, command palette
+    story/             SceneCard, SceneCanvas, field diff, state chips
+    review/            FindingCard
+    ui/                shadcn primitives, themed to the Storyverse tokens
+  lib/
+    types/schemas.ts   THE CONTRACT — Zod schemas, all types inferred from here
+    demo/fixtures.ts   The demo story as typed data
+    db/queries.ts      The only module that reads data
+    store/             workspace.ts (UI state) + workspace-data.tsx (domain snapshot)
+    supabase/          Browser and server Supabase clients
   test/                Shared test setup
+public/demo/           Placeholder panel and reference-sheet art
 ```
+
+### The one architectural rule
+
+Nothing outside `src/lib/db/` reads data. The project layout fetches one snapshot on the
+server and passes it down; no client component fetches anything. That is what makes
+`NEXT_PUBLIC_USE_FIXTURES` a one-line switch instead of a refactor, and it is also why
+there is no client-side path a key could leak into.
 
 ## Responsible AI and human control
 
@@ -76,8 +128,9 @@ documentation, along with the human decisions and validation applied to its outp
 
 ## Near-term build path
 
-1. Add Supabase schema and authentication.
-2. Build the story workspace and scene-card model.
-3. Implement the 2D branch tree and demo data.
-4. Add the continuity review and visual diff flow.
-5. Add the optional Three.js overview after the 2D workflow is reliable.
+1. ~~Build the story workspace and scene-card model.~~ Done.
+2. ~~Define the shared contract and the demo data.~~ Done.
+3. Add Supabase schema, RLS, authentication, and the staged seed script.
+4. Implement the 2D branch tree over the existing timeline data.
+5. Add the continuity review and visual diff flow against watsonx.
+6. Add the optional Three.js overview after the 2D workflow is reliable.

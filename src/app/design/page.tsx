@@ -1,8 +1,8 @@
 import { GitBranch, Plus, Search, Users } from "lucide-react";
 
-import { FindingCard, type Finding } from "@/components/review/finding-card";
+import { FindingCard } from "@/components/review/finding-card";
 import { FieldDiff } from "@/components/story/field-diff";
-import { SceneCard, type SceneCardData } from "@/components/story/scene-card";
+import { SceneCard } from "@/components/story/scene-card";
 import { BranchChip, StateChip } from "@/components/story/state-chip";
 import { Box, BoxBody, BoxFooter, BoxHeader, BoxRow } from "@/components/ui/box";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CHARACTERS,
+  EXPECTED_FINDING,
+  SCENES_WITH_VERSIONS,
+} from "@/lib/demo/fixtures";
 
 /**
- * The component gallery. Every dataless component in one place, so the team
- * can agree the design is right before four people build on top of it.
+ * The component gallery. Every component in one place, so the team can agree
+ * the design is right before four people build on top of it.
  * Specification: STORYVERSE_DESIGN.txt
+ *
+ * It renders the real fixtures rather than gallery-only mock data. Sample data
+ * written twice drifts, and a gallery that disagrees with the app is worse
+ * than no gallery.
  */
 
 const SURFACES = [
@@ -51,52 +60,22 @@ const TYPE = [
   ["text-page", "20px", "page title only"],
 ];
 
-const CANON_SCENE: SceneCardData = {
-  id: "S3",
-  title: "S3 — The choice at the drowned stair",
-  location: "Flooded city, lower ward",
-  timeOfDay: "Dusk",
-  characters: ["Wren", "Stranger"],
-  props: ["brass compass", "rope"],
-  beat: "Wren hesitates, then pockets the compass and turns away from the cry for help.",
-  author: "Rahat",
-  version: 2,
-  when: "2h ago",
+const scene = (id: string) => {
+  const found = SCENES_WITH_VERSIONS.find((s) => s.id === id);
+  if (!found) throw new Error(`design gallery: no fixture scene ${id}`);
+  return found;
 };
 
-const BRANCH_SCENE: SceneCardData = {
-  ...CANON_SCENE,
-  id: "S4",
-  title: "S4 — Reading the compass in the dark",
-  beat: "Wren lifts the compass to catch the last light and finds the way out.",
-  author: "Omit",
-  version: 1,
-  when: "12m ago",
-};
+const CANON_SCENE = scene("scene-main-s3");
+const BRANCH_SCENE = scene("scene-wf-s4");
 
-const COMPASS_FINDING: Finding = {
-  id: "f1",
-  severity: "high",
-  kind: "prop_state",
-  affectedScene: "S4",
-  explanation:
-    "Wren uses the brass compass in S4, but on this branch the compass was given to the stranger in S3. The object cannot be in Wren's possession at this point in the timeline.",
-  evidence: [
-    {
-      scene: "S3",
-      field: "action",
-      value: "Wren presses the compass into the stranger's hands and lets go.",
-    },
-    { scene: "S4", field: "props_used", value: "[\"brass compass\", \"rope\"]" },
-  ],
-  brokenFact: {
-    statement: "The brass compass is in Wren's possession.",
-    establishedIn: "S2",
-  },
-  suggestedFix:
-    "Either remove the compass from S4's props and have Wren navigate by the flooded skyline, or add a beat in S3 where the stranger returns it.",
-  source: "rule+model",
-};
+const CHARACTER_NAMES = Object.fromEntries(
+  CHARACTERS.map((c) => [c.id, c.name]),
+);
+
+const SCENE_TITLES = Object.fromEntries(
+  SCENES_WITH_VERSIONS.map((s) => [s.id, s.title]),
+);
 
 function Section({
   title,
@@ -300,17 +279,35 @@ export default function DesignSystemPage() {
           note="A GitHub box at Obsidian density. The most-seen component in the demo."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <SceneCard scene={CANON_SCENE} />
-            <SceneCard scene={BRANCH_SCENE} variant="selected" />
-            <SceneCard scene={BRANCH_SCENE} variant="conflicted" />
+            <SceneCard
+              scene={CANON_SCENE}
+              authorName="Rahat"
+              characterNames={CHARACTER_NAMES}
+            />
+            <SceneCard
+              scene={BRANCH_SCENE}
+              authorName="Omit"
+              characterNames={CHARACTER_NAMES}
+              variant="selected"
+            />
+            <SceneCard
+              scene={BRANCH_SCENE}
+              authorName="Omit"
+              characterNames={CHARACTER_NAMES}
+              variant="conflicted"
+            />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <SceneCard
-              scene={{ ...CANON_SCENE, title: "S5 — The stranger's debt" }}
+              scene={scene("scene-wf-s5")}
+              authorName="Omit"
+              characterNames={CHARACTER_NAMES}
               variant="added"
             />
             <SceneCard
-              scene={{ ...CANON_SCENE, title: "S6 — Cut from canon" }}
+              scene={scene("scene-main-s4")}
+              authorName="Rahat"
+              characterNames={CHARACTER_NAMES}
               variant="removed"
             />
           </div>
@@ -329,17 +326,20 @@ export default function DesignSystemPage() {
             <BoxBody className="space-y-4">
               <FieldDiff
                 field="action"
-                before="Wren pockets the compass and turns away from the cry for help."
-                after="Wren presses the compass into the stranger's hands and lets go."
+                before={scene("scene-main-s3").version.action}
+                after={scene("scene-wf-s3").version.action}
               />
               <FieldDiff
                 field="props_used"
-                before='["brass compass", "rope"]'
-                after='["rope"]'
+                before={JSON.stringify(
+                  scene("scene-main-s3").version.props_used,
+                )}
+                after={JSON.stringify(scene("scene-wf-s3").version.props_used)}
               />
               <FieldDiff
                 field="emotional_beat"
-                after="Relief, undercut by the loss of the only thing that could guide her out."
+                before={scene("scene-main-s3").version.emotional_beat}
+                after={scene("scene-wf-s3").version.emotional_beat}
               />
               <p className="text-meta text-sv-faint">3 unchanged fields</p>
             </BoxBody>
@@ -350,7 +350,10 @@ export default function DesignSystemPage() {
           title="Continuity finding"
           note="GitHub's review comment, adapted for AI output. The footer label is required on every AI-authored surface."
         >
-          <FindingCard finding={COMPASS_FINDING} />
+          <FindingCard
+            finding={EXPECTED_FINDING}
+            sceneTitles={SCENE_TITLES}
+          />
         </Section>
 
         <Section
