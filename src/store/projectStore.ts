@@ -4,7 +4,8 @@ import { create } from "zustand";
 import type { Project, ProjectStatus } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
-// Mock seed data — will be replaced by real Supabase data on Day 2
+// Static fallback — used when Supabase credentials are absent (AI_MOCK mode)
+// or when the DB returns no rows for a fresh dev environment.
 // ---------------------------------------------------------------------------
 const MOCK_PROJECTS: Project[] = [
   {
@@ -42,17 +43,38 @@ const MOCK_PROJECTS: Project[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
 interface ProjectStore {
   projects: Project[];
   isLoading: boolean;
   error: string | null;
 
-  // Actions
   loadProjects: () => Promise<void>;
   addProject: (values: { title: string; description: string; status: ProjectStatus }) => Promise<Project>;
   getProject: (id: string) => Project | undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** True when Supabase env vars look real (not placeholder strings). */
+function hasSupabaseCredentials(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+  return (
+    url.startsWith("https://") &&
+    !url.includes("your-project") &&
+    key.length > 20 &&
+    !key.includes("your_supabase")
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   isLoading: false,
@@ -60,31 +82,71 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   loadProjects: async () => {
     set({ isLoading: true, error: null });
-    try {
-      // TODO: replace with real Supabase call once Rahat's API is ready
-      // const { data, error } = await supabase.from("projects").select("*");
-      await new Promise((r) => setTimeout(r, 600)); // simulate network
-      set({ projects: MOCK_PROJECTS, isLoading: false });
-    } catch {
-      set({ error: "Failed to load projects. Please try again.", isLoading: false });
+
+    // ── Real Supabase path ────────────────────────────────────────────────
+    if (hasSupabaseCredentials()) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { fetchProjects } = await import("@/lib/supabase/db");
+        const client = createClient();
+
+        // Check session — fall back to mock if not signed in (dev bypass)
+        const { data: sessionData } = await client.auth.getSession();
+        if (!sessionData.session) {
+          set({ projects: MOCK_PROJECTS, isLoading: false });
+          return;
+        }
+
+        const projects = await fetchProjects(client);
+        // Always include MOCK_PROJECTS as fallback when DB is empty (first run)
+        set({
+          projects: projects.length > 0 ? projects : MOCK_PROJECTS,
+          isLoading: false,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to load projects";
+        // Non-fatal: degrade to mock data so the demo still works
+        set({ projects: MOCK_PROJECTS, isLoading: false, error: msg });
+      }
+      return;
     }
+
+    // ── Mock / offline path ───────────────────────────────────────────────
+    // Small artificial delay to make loading states visible in dev
+    await new Promise<void>((r) => setTimeout(r, 300));
+    set({ projects: MOCK_PROJECTS, isLoading: false });
   },
 
   addProject: async (values) => {
-    // TODO: replace with real Supabase insert once Rahat's API is ready
-    await new Promise((r) => setTimeout(r, 400)); // simulate network
+    // ── Real Supabase path ────────────────────────────────────────────────
+    if (hasSupabaseCredentials()) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { insertProject } = await import("@/lib/supabase/db");
+        const client = createClient();
+        const newProject = await insertProject(client, values);
+        set((state) => ({ projects: [newProject, ...state.projects] }));
+        return newProject;
+      } catch (err) {
+        throw err instanceof Error ? err : new Error("Failed to create project");
+      }
+    }
+
+    // ── Mock path ─────────────────────────────────────────────────────────
+    await new Promise<void>((r) => setTimeout(r, 200));
+    const now = new Date().toISOString();
     const newProject: Project = {
-      id: `project-${Date.now()}`,
+      id: `project-local-${now}`,
       title: values.title,
       description: values.description,
       status: values.status,
       ownerId: "dev-user",
       collaborators: [],
       branches: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
-    set((state) => ({ projects: [...state.projects, newProject] }));
+    set((state) => ({ projects: [newProject, ...state.projects] }));
     return newProject;
   },
 

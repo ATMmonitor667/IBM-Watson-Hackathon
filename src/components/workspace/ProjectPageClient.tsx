@@ -9,7 +9,7 @@ import { ProjectHeader } from "@/components/workspace/ProjectHeader";
 import { WorkspacePageSkeleton } from "@/components/workspace/LoadingSkeletons";
 import { ErrorState } from "@/components/workspace/StateViews";
 import { SceneCanvas } from "@/components/workspace/SceneCanvas";
-import { SceneDetailPanel, CreateBranchPanel } from "@/components/workspace/BranchPanels";
+import { SceneDetailPanel, CreateBranchPanel, CreateScenePanel, MergePreviewPanel } from "@/components/workspace/BranchPanels";
 import { useProjectStore } from "@/store/projectStore";
 import { useUiStore } from "@/store/uiStore";
 import { useSceneStore } from "@/store/sceneStore";
@@ -50,6 +50,14 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
     (branch: Branch) => {
       setBranches((prev) => [...prev, branch]);
       addActivity({ message: `Branch "${branch.name}" created`, type: "branch" });
+    },
+    [addActivity],
+  );
+
+  const handleSceneCreated = useCallback(
+    (scene: Scene) => {
+      setScenes((prev) => [...prev, scene]);
+      addActivity({ message: `Scene #${scene.sceneNumber} "${scene.title}" added`, type: "scene" });
     },
     [addActivity],
   );
@@ -164,15 +172,22 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
           {/* Scene canvas area */}
           <section
-            className="flex min-h-0 flex-1 overflow-hidden border-b border-white/10 bg-slate-950 md:border-b-0 md:border-r"
+            className="relative flex min-h-0 flex-1 overflow-hidden border-b border-white/10 bg-slate-950 md:border-b-0 md:border-r"
             aria-label="Scene canvas"
           >
             <SceneCanvas
               scenes={scenes}
               isLoading={isRefreshing}
               projectTitle={project.title}
-              onAddScene={() => alert("Scene creation — coming soon")}
+              onAddScene={() => useUiStore.getState().openPanel("create-scene")}
             />
+            {openPanelId === "create-scene" && (
+              <CreateScenePanel
+                projectId={id}
+                nextSceneNumber={scenes.length + 1}
+                onCreated={handleSceneCreated}
+              />
+            )}
           </section>
 
           {/* Branch tree area — position:relative so panels anchor here
@@ -197,18 +212,23 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
               <BranchTree branches={branches} />
             </div>
 
-            {/* Detail / create-branch panels — slide in over the branch tree */}
+            {/* Detail / create-branch / merge-preview panels — slide in over the branch tree */}
             {openPanelId === "scene-detail" && (
               <SceneDetailPanel
                 scenes={scenes}
                 branches={branches}
-                onMergeBranch={handleMergeBranch}
               />
             )}
             {openPanelId === "create-branch" && (
               <CreateBranchPanel
                 scenes={scenes}
                 onBranchCreated={handleBranchCreated}
+              />
+            )}
+            {openPanelId === "merge-preview" && (
+              <MergePreviewPanel
+                branches={branches}
+                onMergeBranch={handleMergeBranch}
               />
             )}
           </section>
