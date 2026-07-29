@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { BookOpen, FolderOpen, GitBranch, LayoutDashboard, Plus, Settings } from "lucide-react";
+import { BookOpen, FolderOpen, GitBranch, LayoutDashboard, Plus, ScanSearch, Settings, Users } from "lucide-react";
 
 import { CreateProjectForm } from "@/components/workspace/CreateProjectForm";
 import { useProjectStore } from "@/store/projectStore";
@@ -132,6 +132,18 @@ export function WorkspaceSidebar() {
               icon={<GitBranch className="size-4" />}
               label="Branches"
               active={pathname?.startsWith(`/projects/${activeProjectId}/branches`)}
+            />
+            <NavLink
+              href={`/projects/${activeProjectId}/characters`}
+              icon={<Users className="size-4" />}
+              label="Characters"
+              active={pathname?.startsWith(`/projects/${activeProjectId}/characters`)}
+            />
+            <NavLink
+              href={`/projects/${activeProjectId}/review`}
+              icon={<ScanSearch className="size-4" />}
+              label="Review & Merge"
+              active={pathname?.startsWith(`/projects/${activeProjectId}/review`)}
             />
           </SidebarSection>
         )}
