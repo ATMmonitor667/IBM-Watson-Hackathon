@@ -1,0 +1,774 @@
+STORYVERSE - IMPLEMENTATION PLAN (BUILD ORDER + OWNERSHIP)
+==========================================================
+
+Revision 2. Rewritten to be a FOUR-PERSON parallel plan, not a single-threaded build order.
+See section 14 for exactly what changed from revision 1 and why.
+
+Team:        Rahat (lead/platform), Omit (workspace), Farin (AI), Firdosi (character/review/design)
+Companion:   STORYVERSE_8_DAY_TEAM_PLAN.txt - ownership philosophy, definition of done, cut order
+This file:   WHAT to build, in WHAT order, in WHICH files, by WHOM.
+
+Working branch for Rahat: feature/rahat-platform
+
+
+0. WHERE THE REPO ACTUALLY IS RIGHT NOW
+=======================================
+
+Verified against the working tree, not assumed:
+
+EXISTS:
+- Next.js 16 App Router + React 19 + TypeScript, "@/*" path alias.
+- Tailwind CSS v4 (via @tailwindcss/postcss, `@import "tailwindcss"`). There is no
+  tailwind.config.js and v4 does not need one - theme goes in CSS via @theme.
+- components.json present, so `npx shadcn@latest add <x>` works, but NO components added yet
+  and src/components/ does not exist.
+- Installed and entirely unused: @xyflow/react (React Flow 12), three + @react-three/fiber +
+  drei, framer-motion, zustand, react-hook-form + @hookform/resolvers, zod 4, sonner,
+  lucide-react, sharp, @supabase/ssr + supabase-js.
+- src/lib/supabase/client.ts and server.ts - SSR cookie clients, written, never called.
+- src/app/page.tsx - a purple marketing landing page. The ONLY UI that exists.
+- src/app/globals.css - purple radial-gradient theme + a reduced-motion block.
+- Vitest + Testing Library configured; one trivial test at src/app/page.test.tsx.
+- Scripts: dev, build, lint, typecheck, test, test:watch.
+
+DOES NOT EXIST YET:
+- src/components/, src/hooks/, src/lib/types/, src/lib/ai/, src/lib/db/, src/lib/demo/
+- Any Supabase project, schema, migration, RLS policy, or seed script
+- Any authentication, any route besides "/"
+- Any watsonx call - NOBODY HAS PROVEN ONE WORKS YET. This is risk #1.
+- The Obsidian-style design system (current CSS is the opposite of it)
+
+Branches: main, origin/Md (identical to main, no diff), and now feature/rahat-platform.
+A shared `develop` integration branch does not exist yet - Rahat creates it in the first hour.
+
+NOT INSTALLED, decide at the step that needs it, do not install early:
+- dagre / elkjs (React Flow auto-layout). For a tree this small, hand-computed x/y is more
+  predictable. Prefer hand-computed.
+- date-fns. Intl.RelativeTimeFormat covers the activity feed.
+- tsx or esbuild-register, needed to run the seed script. Rahat adds it at Step P3.
+
+
+0.1 TIMELINE REALITY CHECK
+--------------------------
+
+Today is 26 July 2026. Deadline: 31 July 2026, 11:59 PM ET.
+The 8-day team plan assumed Day 1 = July 22. The repo is at roughly "end of Day 0".
+
+Actual budget: FIVE build days (Jul 26-30) plus Jul 31 for submission and emergencies.
+That is three days less than the team plan assumed. Two consequences, both non-negotiable:
+
+  1. Nobody may sit blocked. The whole point of section 0.2 is that all four tracks start
+     on day one against contracts and fixtures, not against a finished backend.
+  2. Feature freeze is END OF DAY 4 (Jul 29), not Day 7. Day 5 is QA, README, and recording.
+     If a feature is not integrated by end of D4, it is cut, not rushed.
+
+
+0.2 HOW FOUR PEOPLE BUILD THIS IN PARALLEL (READ THIS FIRST)
+------------------------------------------------------------
+
+This is the most important section in the document. Revision 1 of this plan was a strict
+sequence: shell, then schema, then auth, then canvas, then branching, then AI. With four
+people that plan idles three of them for two days and then produces a merge catastrophe.
+
+The unblocking mechanism is two files that Rahat writes in the FIRST HOUR of Day 1:
+
+  src/lib/types/schemas.ts    Zod schemas + inferred TS types for every domain object.
+  src/lib/demo/fixtures.ts    The entire flooded-city demo, hand-written as typed objects
+                              conforming to those schemas.
+
+And one rule:
+
+  NOBODY IMPORTS FROM @supabase ANYWHERE EXCEPT src/lib/db/*.
+
+Every screen, every component, every AI prompt reads data through `src/lib/db/queries.ts`,
+which on Day 1 simply returns fixtures:
+
+    // src/lib/db/queries.ts - Day 1
+    export async function getBranchScenes(branchId: string): Promise<SceneWithVersion[]> {
+      if (USE_FIXTURES) return fixtures.scenes.filter(s => s.branch_id === branchId);
+      return realQuery(branchId);   // Rahat fills this in on Day 2-3
+    }
+
+Consequences, all good:
+- Omit builds the entire workspace on Day 1 against real-shaped data with real content.
+- Farin builds prompts and the canon-context builder against fixtures, with no DB dependency.
+- Firdosi builds Character Studio and the diff view against fixtures.
+- Rahat swaps the implementation underneath them with zero changes to anyone's components.
+- The fixtures file ALSO feeds the seed script, so the mocked UI and the seeded database show
+  byte-identical content. No "works with mocks, breaks against Postgres" surprise on Day 4.
+
+USE_FIXTURES is an env flag (NEXT_PUBLIC_USE_FIXTURES=1). Keep it working all the way to the
+end - it is also the offline demo fallback if Supabase has a bad night during recording.
+
+THE HARD DEADLINE: schemas.ts and fixtures.ts must be pushed to `develop` by end of Day 1
+morning. Everything else on Day 1 is secondary to this. If Rahat is blocked on anything, he
+drops it and finishes these two files.
+
+
+1. THE ONE SENTENCE THE BUILD MUST SATISFY
+==========================================
+
+"A creator locks a character, builds a short scene sequence, branches at a decision point, a
+collaborator changes the branch, AI catches a concrete continuity contradiction with evidence,
+the creator selectively merges, and the branch tree and history update."
+
+If a task does not move that sentence forward, it is not a Day 1-4 task.
+
+Demo story - FIXED. Do not redesign it later:
+- Character: Wren, a young explorer. Locked reference sheet.
+- Prop: a glowing brass compass.
+- Location: a flooded city.
+- Canon scenes: S1 arrival -> S2 finds the compass -> S3 the choice -> S4 outcome.
+- The choice: pursue the compass, or save a trapped stranger.
+- Canon branch (main): Wren pursues the compass.
+- Alternate branch (what-if/save-the-stranger): a collaborator makes Wren save the stranger,
+  which means Wren GIVES THE COMPASS AWAY in the modified S3.
+- The planted contradiction: the collaborator's new S4 still shows Wren using the compass.
+  The inspector must catch exactly this, cite S3 as evidence, and name the broken canon fact
+  "the brass compass is in Wren's possession".
+
+Those 15 seconds are the most important in the video. The data model exists to make that
+contradiction detectable from structured fields, not from prose.
+
+
+2. DESIGN DIRECTION - OBSIDIAN-STYLE
+====================================
+
+Owner of the tokens: Firdosi (Day 1, first task, ~1 hour).
+Owner of the shell components that consume them: Omit.
+The current landing-page look is replaced for the app. Keep it only for signed-out "/".
+
+2.1 WHY OBSIDIAN'S LAYOUT FITS THIS PRODUCT
+-------------------------------------------
+
+Obsidian's shell maps almost one-to-one onto Storyverse. That is the reason to copy it, and
+it is also a good paragraph for the README:
+
+  Obsidian ribbon (far-left icon rail)   -> mode rail: Scenes, Characters, Branch tree,
+                                            World graph, Review, Activity
+  Obsidian left sidebar (file explorer)  -> Story Explorer: branches, scenes per branch,
+                                            characters, props, locations
+  Obsidian center (tabbed panes, split)  -> work surface: scene canvas, scene detail,
+                                            Character Studio, branch diff, review page
+  Obsidian right sidebar (backlinks,
+    outline, properties)                 -> Canon panel: canon facts in play, continuity
+                                            findings, scene properties, revision history
+  Obsidian status bar (bottom)           -> active branch, review status, AI status, save state
+  Obsidian command palette (Ctrl/Cmd+K)  -> Storyverse command palette
+  Obsidian graph view                    -> branch tree AND world knowledge graph
+
+The PRD asks for two graphs, a canon bible, revision history, and reviewable AI. Obsidian's
+chrome already has a home for every one of them. Do not invent a new layout.
+
+2.2 THE VISUAL TOKENS
+---------------------
+
+Obsidian dark is a low-chroma near-black, ONE accent (purple), 1px borders, effectively no
+shadows, no gradients, small radii, dense type. Match that discipline. The predictable
+failure mode is leaving today's glow/gradient aesthetic in place.
+
+Firdosi defines these in globals.css inside an @theme block (Tailwind v4) so they are usable
+as bg-base, text-muted, border-divider, etc.
+
+  Dark (default)
+    --bg-base            #1e1e1e   app background, center pane
+    --bg-secondary       #262626   sidebars, rail, status bar
+    --bg-tertiary        #2a2a2a   hovered rows, inputs
+    --bg-elevated        #303030   popovers, command palette, menus
+    --border-divider     #3a3a3a   1px separators, pane edges
+    --border-strong      #4a4a4a   focused input border
+    --text-normal        #dcddde
+    --text-muted         #9a9a9a   secondary labels, metadata
+    --text-faint         #6e6e6e   timestamps, disabled
+    --accent             #8b5cf6   primary actions, active nav, canon path
+    --accent-hover       #a78bfa
+    --accent-subtle      rgba(139,92,246,0.14)  selected row background
+    --success            #4ade80   merged, approved
+    --warning            #fbbf24   under review, low-severity finding
+    --danger             #f87171   contradiction, conflict, high severity
+
+  Light: build the variables now, defer the QA to Day 5 or cut it.
+    --bg-base #ffffff, --bg-secondary #f6f6f6, --bg-tertiary #ececec,
+    --border-divider #e0e0e0, --text-normal #222222, --text-muted #6b6b6b, accent unchanged.
+
+  Geometry and type
+    radius     4px small (buttons, inputs, rows), 6px cards/panes. Nothing pill-shaped.
+    borders    1px solid var(--border-divider). Shadows only on floating layers.
+    font       system UI stack. 13px base in chrome, 14-15px in content panes. Obsidian's
+               chrome is smaller than typical web UI - 16px everywhere stops reading as
+               Obsidian.
+    density    28px sidebar rows, 32px toolbars, 8px gutters.
+    icons      lucide-react, 16px in chrome, 18px in the rail.
+    motion     120-160ms ease-out. Nothing bouncy. All of it disabled under
+               prefers-reduced-motion (the block already in globals.css).
+
+  Story-specific, layered on top:
+    canon / main branch    --accent, solid 2px edge in the tree, brightest node
+    alternate branch       --text-muted, 1.5px dashed edge
+    merged branch          --success
+    abandoned / rejected   --text-faint
+    conflicted scene       --danger left border on the scene card
+
+2.3 SHELL BEHAVIOUR TO COPY
+---------------------------
+
+- Sidebars collapse; each has a toggle; state persists in localStorage.
+- The center pane is tabbed. Minimum: scene, diff, Character Studio open as tabs and switch
+  without losing state.
+- Everything keyboard reachable. Focus ring: 2px --accent outline, 2px offset.
+- Command palette on Ctrl/Cmd+K: New scene, New branch, Run continuity review, Open branch
+  tree, Lock character, Open diff, Merge selected. Cheap to build, demos extremely well.
+- The status bar always shows the active branch and its state chip. In the demo this is the
+  thing that proves "we are on the alternate timeline, canon is untouched".
+
+2.4 WHAT NOT TO DO
+------------------
+
+- No purple gradients, no glow blobs, no glassmorphism, no hero type inside the app.
+- Do not use shadcn/ui defaults as-is. Override its CSS variables to the tokens above BEFORE
+  adding many components, or you end up with a generic shadcn app.
+- Do not make the rail wider than ~48px or it stops reading as Obsidian.
+- Three.js appears on exactly one surface (the tree overview), and only in the EXTRA track.
+
+
+3. TARGET FOLDER STRUCTURE (WITH OWNERS)
+========================================
+
+Create directories at the step that needs them. The OWNER column is the conflict-avoidance
+mechanism: if you need a change in someone else's directory, ask them, do not just edit it.
+
+src/
+  app/
+    (marketing)/page.tsx                          RAHAT   existing landing page, moved
+    (auth)/login/page.tsx, callback/route.ts      RAHAT
+    (app)/layout.tsx                              OMIT    THE OBSIDIAN SHELL
+    (app)/projects/page.tsx                       OMIT
+    (app)/p/[projectId]/
+        layout.tsx                                OMIT
+        page.tsx                (scene canvas)    OMIT
+        scenes/[sceneId]/page.tsx                 OMIT
+        characters/page.tsx     (studio)          FIRDOSI
+        tree/page.tsx                             OMIT
+        compare/page.tsx        (diff+review)     FIRDOSI
+        activity/page.tsx                         OMIT
+    api/ai/continuity/route.ts                    FARIN
+    api/ai/merge/route.ts                         FARIN
+    api/ai/character/route.ts                     FARIN
+    globals.css                                   FIRDOSI (tokens only; nobody else edits)
+  components/
+    shell/    Rail, LeftSidebar, RightSidebar, StatusBar, PaneTabs, CommandPalette   OMIT
+    story/    SceneCard, SceneCanvas, BranchTree, BranchBadge, ActivityFeed          OMIT
+    story/    DiffView                                                              FIRDOSI
+    character/ CharacterStudio, CharacterVersionCompare, LockCharacterButton         FIRDOSI
+    review/   FindingCard, MergeStrategyCard, MergeSelectionList                     FIRDOSI
+    ui/       shadcn primitives                                          FIRDOSI adds+themes
+  lib/
+    supabase/  client.ts, server.ts, middleware.ts                                  RAHAT
+    db/        queries.ts, mutations.ts   (ONLY place that touches Supabase)         RAHAT
+    demo/      fixtures.ts                (the demo, as typed objects)               RAHAT
+    ai/        watsonx.ts, canon-context.ts, prompts.ts, schemas.ts, rules.ts        FARIN
+    types/     domain.ts, schemas.ts      (the shared contract)                      RAHAT
+    store/     workspace.ts               (Zustand UI state)                         OMIT
+supabase/
+  migrations/  0001_init.sql, 0002_rls.sql                                          RAHAT
+  seed/        seed.ts                                                              RAHAT
+public/
+  demo/        original flooded-city artwork                                        FIRDOSI
+
+SHARED FILES - coordinate before editing: package.json, globals.css, src/lib/types/schemas.ts.
+Rule: schema changes are proposed in the group chat and made by Rahat only. Everyone else
+pulls. A silent schema edit at 2am is how four workstreams desynchronise.
+
+
+4. DATA MODEL (MVP SUBSET)
+==========================
+
+The PRD lists 21 entities. The MVP needs 11. Do not create the rest.
+
+  profiles           id (=auth.users.id), display_name, avatar_url
+  projects           id, owner_id, title, premise, visual_style, format, created_at
+  project_members    project_id, user_id, role ('owner'|'collaborator'|'viewer')
+  branches           id, project_id, name, parent_branch_id, branched_from_scene_id,
+                     is_canon bool, state ('draft'|'under_review'|'approved'|'merged'|
+                     'abandoned'), created_by, created_at
+  characters         id, project_id, name, summary, locked_version_id (nullable)
+  character_versions id, character_id, version_no, image_url, palette jsonb, traits jsonb,
+                     clothing_rules text[], created_by, created_at
+  scenes             id, project_id, branch_id, order_index, title, current_version_id,
+                     forked_from_scene_id (nullable)
+  scene_versions     id, scene_id, version_no, panel_image_url, setting, time_of_day,
+                     characters_present uuid[], dialogue text, action text,
+                     emotional_beat text, story_purpose text,
+                     props_used text[],        <-- the contradiction is detected from here
+                     author_id, created_at
+  world_facts        id, project_id, branch_id (null = canon), kind ('character'|'prop'|
+                     'location'|'rule'|'event'), subject, statement,
+                     established_in_scene_id, status ('canon'|'branch'|'draft'|'rejected')
+  ai_reviews         id, project_id, branch_id, kind ('continuity'|'merge'), status,
+                     findings jsonb, model, created_at
+  merges             id, project_id, source_branch_id, target_branch_id,
+                     selected_scene_version_ids uuid[], reviewer_id, explanation, created_at
+  activity_events    id, project_id, branch_id, actor_id, kind, subject_id, summary,
+                     created_at
+
+KEY DECISIONS - do not drift:
+
+1. A branch owns its own rows in `scenes`. Branching = copy the scene rows, point the copies
+   at the new branch_id, keep order_index, set forked_from_scene_id. Simpler and far more
+   debuggable in five days than a commit DAG, and still honest: history lives in
+   scene_versions and activity_events.
+
+2. `props_used` on scene_versions plus prop `world_facts` is what makes the continuity check
+   CONCRETE instead of vibes. Canon: "Wren carries the brass compass, established in S2."
+   Alternate S3 establishes "Wren gave the compass to the stranger." Alternate S4 still lists
+   'brass compass' in props_used. Hard evidence to cite, and deterministically detectable.
+
+3. Exactly one branch per project has is_canon = true. Merging never rewrites history: it
+   copies selected scene_versions onto canon as NEW versions and writes a `merges` row.
+
+4. Every mutation writes an activity_events row in the same transaction. The activity feed is
+   a required demo beat; retrofitting it on Day 4 is painful.
+
+RLS, minimum viable:
+- Read: the user has a project_members row for that project.
+- Write: role in ('owner','collaborator').
+- The "simulated collaborator" is a REAL second seeded account, not a bypass. Log in as them
+  in a second browser profile for the demo. More convincing, and it avoids putting a
+  service-role key anywhere near the browser.
+
+STAGED SEEDS - build this, it is your insurance policy:
+  npm run seed -- --stage=base       project, Wren (2 versions, unlocked), main S1-S4, facts
+  npm run seed -- --stage=branched   + the alternate branch with the collaborator's edits
+  npm run seed -- --stage=reviewed   + a persisted ai_reviews row with the compass finding
+  npm run seed -- --stage=merged     + the completed merge and activity trail
+
+The live demo performs the transitions between stages. If a take breaks halfway, you jump to
+the next stage in ten seconds and keep recording instead of restarting the whole run.
+
+
+5. THE SHARED CONTRACT
+======================
+
+src/lib/types/schemas.ts. Zod is the source of truth; TS types are inferred from it.
+Owner: Rahat. Due: Day 1, morning. Three people are blocked until it lands.
+
+  ProjectSchema, BranchSchema, SceneSchema, SceneVersionSchema, CharacterSchema,
+  CharacterVersionSchema, WorldFactSchema, ActivityEventSchema
+
+  CanonContextSchema - what goes to the model:
+      { project: {title, premise, visual_style},
+        lockedCharacters: [{name, traits, clothing_rules, palette}],
+        canonFacts:  [{kind, subject, statement, established_in}],
+        branchFacts: [{...same, branch}],
+        scenes: [{order, title, setting, time_of_day, characters_present, props_used,
+                  action, dialogue}] }
+
+  ContinuityFindingSchema - what comes back:
+      { id, severity: 'high'|'medium'|'low',
+        kind: 'prop_state'|'timeline'|'character_knowledge'|'location'|'design_drift'|'rule',
+        affected_scene_id, evidence: [{scene_id, quote_or_field}],
+        broken_fact: {subject, statement, established_in_scene_id},
+        explanation, suggested_fix,
+        source: 'rule'|'model'|'rule+model' }      <-- see section 7, Step A3
+
+  MergeStrategySchema:
+      { id, label, description, includes_scene_version_ids, tradeoffs, canon_impact }
+
+  MergeAssistantResponseSchema:
+      { source_summary, target_summary, compatible_changes[], true_conflicts[],
+        strategies: MergeStrategy[1..3] }
+
+Rules that keep this from rotting:
+- API routes Zod-parse their input AND the model's output. Never render raw model text.
+- On parse failure: one repair retry, then the deterministic path. Never a stack trace on
+  screen during the demo.
+- Fixtures, the seed script, and the real queries all satisfy the same schemas. If they
+  diverge, the schema is wrong, not the data.
+
+
+6. THE FIXTURES FILE
+====================
+
+src/lib/demo/fixtures.ts, owner Rahat, Day 1 morning, immediately after schemas.ts.
+
+It contains the entire flooded-city story as typed constants: 1 project, 2 members, Wren with
+a rough and a refined character_version, the main branch with S1-S4, the alternate branch with
+its modified S3/S4, canon world_facts including the compass possession fact, and the expected
+continuity finding.
+
+It is consumed by THREE things, which is why it must be written once and only once:
+  - src/lib/db/queries.ts when NEXT_PUBLIC_USE_FIXTURES=1  (unblocks Omit and Firdosi)
+  - supabase/seed/seed.ts                                   (the real database)
+  - src/lib/ai/*.test.ts                                    (Farin's test inputs)
+
+Panel images point at /demo/*.png. Firdosi replaces grey placeholder boxes with real artwork
+as it lands. NOBODY BLOCKS ON ARTWORK - placeholders with scene titles are fine until Day 3.
+
+
+7. THE BUILD STEPS, BY TRACK
+============================
+
+Four tracks run in parallel from Day 1. Step IDs are prefixed by track so they can be
+referenced in the board and in PR titles: P = Platform, W = Workspace, A = AI, C = Character
+and review. Dependencies are listed explicitly; anything not listed is not a dependency.
+
+
+TRACK P - PLATFORM (RAHAT)
+--------------------------
+
+P0  Repo governance. Create `develop` from main. Branch protection rules, PR template, the
+    four feature branches. Add tsx for the seed script. Post the rules in the team chat.
+    DEPS: none.  DONE: everyone has pushed one trivial commit to their own branch.
+
+P1  THE CONTRACT. src/lib/types/schemas.ts - every schema in section 5.
+    DEPS: none.  DONE: pushed to develop. THIS BLOCKS THREE PEOPLE. Nothing else first.
+
+P2  THE FIXTURES. src/lib/demo/fixtures.ts + src/lib/db/queries.ts returning fixtures behind
+    NEXT_PUBLIC_USE_FIXTURES.
+    DEPS: P1.  DONE: `getBranchScenes('main')` returns 4 typed scenes in a unit test.
+
+P3  Supabase project, 0001_init.sql, 0002_rls.sql.
+    DEPS: P1.  DONE: migrations apply to a fresh project; anon SELECT returns nothing, a
+    member's SELECT returns their project.
+
+P4  Auth: login page, callback route, middleware session refresh, protected (app) routes.
+    Create the SECOND ACCOUNT now - it is the collaborator for the rest of the build.
+    DEPS: P3.  DONE: two accounts sign in and each sees only their own projects.
+
+P5  Real queries: replace the fixture branch of every function in queries.ts.
+    DEPS: P3, P2.  DONE: NEXT_PUBLIC_USE_FIXTURES=0 renders the same screens as =1.
+
+P6  seed.ts with the four stages from section 4.
+    DEPS: P3, P2.  DONE: any stage restores in under 10 seconds from any state. Treat a
+    broken seed as a P0 bug for the rest of the project.
+
+P7  Mutations: createProject, createBranch (the scene-copy), updateSceneVersion (always a NEW
+    version, never in-place), all writing activity_events in the same transaction.
+    DEPS: P5.  DONE: branching from S3 leaves main's rows byte-identical (asserted in a test).
+
+P8  mergeSelected: one RPC/transaction copying selected scene_versions onto canon, inserting
+    the merges row, setting branch state, writing activity events.
+    DEPS: P7.  DONE: merging 2 of 3 changes updates exactly those and nothing else.
+
+P9  Vercel deploy, production env vars, preview deploys on every PR.
+    DEPS: P4.  DONE: `develop` auto-deploys and the team uses that URL for the daily gate.
+
+P10 Integration: PR review, daily lint/typecheck/test/build, blocker triage.
+    DEPS: continuous, every day.
+
+
+TRACK W - WORKSPACE (OMIT)
+--------------------------
+
+W1  The Obsidian shell. (app)/layout.tsx: rail | left sidebar | center | right sidebar, status
+    bar across the bottom. components/shell/*. Zustand store for sidebar state and open tabs.
+    DEPS: Firdosi's tokens (C1). Hardcoded content is fine on Day 1.
+    DONE: both sidebars collapse and survive reload; tabs switch between two dummy panes.
+
+W2  SceneCard + SceneCanvas rendering the ordered sequence.
+    DEPS: P1, P2.  DONE: fixtures' S1-S4 render as cards in order.
+
+W3  Scene detail pane + right-sidebar properties and revision history; selection wiring
+    (left sidebar highlight <-> center tab <-> right sidebar).
+    DEPS: W1, W2.  DONE: clicking a card opens a tab and fills the right sidebar.
+
+W4  Branch switcher (sidebar + status bar) and the branch list.
+    DEPS: W1, P2.  DONE: switching to the alternate branch swaps the canvas content.
+
+W5  Scene edit form (RHF + Zod), including props_used. This is what the collaborator uses.
+    DEPS: W3, P7.  DONE: editing the alternate S3 creates a new version, canon unchanged.
+
+W6  BranchTree with @xyflow/react. Custom node = mini scene card. Hand-computed layout: main
+    on a straight spine, alternates offset in Y. Canon solid 2px accent, alternate dashed
+    muted. State chip per branch. Click a node -> open that scene's tab. Fit-view. Keyboard
+    pan/zoom. Readable with animation disabled.
+    DEPS: W2, P2.  DONE: the fork at S3 is legible at 1920x1080.
+
+W7  Activity feed page.
+    DEPS: P7.  DONE: every mutation appears with the right actor and a relative timestamp.
+
+W8  Command palette (Ctrl/Cmd+K) wired to the real commands.
+    DEPS: W1 + the features it invokes.  DONE: all seven commands work.
+
+W9  States pass: loading skeletons, empty, error boundaries, sonner toasts on mutations,
+    focus order, reduced-motion verified with the OS setting actually on.
+    DEPS: everything.  Day 5.
+
+
+TRACK A - AI (FARIN)
+--------------------
+
+A0  THE SPIKE. Prove ONE watsonx.ai text-generation call from a server-only route: IAM token
+    exchange from WATSONX_API_KEY, model id chosen and written down, latency measured.
+    DEPS: none. DO THIS BEFORE ANYTHING ELSE ON DAY 1.
+    DONE: a curl-equivalent round trip, with the p50 latency posted in the team chat.
+    If this fails or the account is not provisioned, the team knows on Day 1 morning instead
+    of Day 4 night. That is the entire point.
+
+A1  src/lib/ai/watsonx.ts - cached IAM token, 20s timeout, one retry, typed errors.
+    DEPS: A0.
+
+A2  canon-context.ts - build a CanonContext for (project, branch) from queries.ts. Must keep
+    canon facts and branch facts separate.
+    DEPS: P1, P2.  DONE: a unit test asserts the exact CanonContext for the fixture branch.
+
+A3  THE CONTINUITY INSPECTOR - two-stage, see the note below.
+    Stage 1, rules.ts: walk scenes in order_index, track prop possession from world_facts and
+    props_used, emit candidate violations with hard evidence (scene ids, field names).
+    Stage 2, the model: hand watsonx the candidates plus the CanonContext and ask it to
+    explain, assign severity, and propose a fix, returning JSON matching
+    ContinuityFindingSchema.
+    DEPS: A1, A2.  DONE: the alternate branch yields a high-severity prop_state finding citing
+    S3 and the compass fact, with and without the model available.
+
+    WHY TWO STAGES - this is a revision from plan v1 and it matters:
+    Rules alone look like a hardcoded if-statement to a judge. A model alone is unreliable at
+    state tracking across scenes and will sometimes miss the contradiction on the take that
+    counts. Splitting them gives each the job it is actually good at: deterministic state
+    tracking finds the violation, the language model explains it in narrative terms and
+    proposes the fix. It also degrades gracefully - if watsonx is down, the finding still
+    appears with a canned explanation and source:'rule'. Document this split in the README; it
+    is a genuine architecture decision, not a fallback hack, and it reads as one.
+
+A4  api/ai/continuity/route.ts - Zod in, Zod out, persists to ai_reviews.
+    DEPS: A3, P5.
+
+A5  Merge assistant: branch summaries, compatible changes, true conflicts, 2-3 strategies with
+    trade-offs. api/ai/merge/route.ts. READ-ONLY - it may never write to canon.
+    DEPS: A2, A1.
+
+A6  Character refinement endpoint: prompt -> refined character description / generation
+    instruction for Firdosi's studio. Text only, no image generation.
+    DEPS: A1.
+
+A7  Panel-generation REQUEST assembly: locked character + canon context -> the exact payload
+    that would be sent to an image service, displayed in the UI. No live generation.
+    DEPS: A2.
+
+A8  AI_MODE=live|fallback env flag; timeout / malformed / rate-limit / missing-credential
+    handling; the six tests from section 10.
+    DEPS: A3-A7.  DONE: flipping one env var forces the deterministic path and the UI cannot
+    tell the difference.
+
+
+TRACK C - CHARACTER, REVIEW UI, DESIGN (FIRDOSI)
+------------------------------------------------
+
+C1  DESIGN TOKENS. globals.css rewritten with section 2.2. Add + theme the first shadcn
+    primitives (button, input, dialog, tabs, badge, tooltip, scroll-area) to the tokens.
+    DEPS: none. DAY 1, FIRST TASK, ~1 HOUR. Omit is blocked on this.
+    DONE: a page of themed primitives that reads as Obsidian, pushed to develop.
+
+C2  Demo assets. Wren reference sheet, the compass, the stranger, and 6-8 panels for S1-S4 on
+    both branches. Original artwork only. Grey placeholders are committed on Day 1 so nobody
+    waits; real art replaces them by Day 3.
+    DEPS: none.
+
+C3  Character Studio: upload to Supabase Storage, metadata form (traits, palette, clothing
+    rules, expressions).
+    DEPS: C1, P1.  Fixtures until P5 lands.
+
+C4  Version compare (rough vs refined) + the explicit Lock Character action setting
+    characters.locked_version_id, with the locked reference visibly surfaced in the canon
+    panel.
+    DEPS: C3, A6, P7.
+
+C5  DiffView: side-by-side scene comparison reusing Omit's SceneCard. Per-scene status
+    (unchanged / changed / added / removed) and highlighted changed fields (dialogue,
+    props_used, action, beat).
+    DEPS: W2 (the SceneCard component), P2.
+
+C6  Review panel: FindingCard with severity, broken fact, evidence links to scenes,
+    explanation, suggested fix, and an explicit "AI proposal - not applied" label.
+    DEPS: A4, C1.
+
+C7  Selective merge UI: checkbox per scene_version, merge strategy cards, confirmation state
+    showing accepted changes and the new canon.
+    DEPS: A5, P8.
+
+C8  Demo direction: the three-minute script, click path, backup screenshots, recording.
+    DEPS: everything. Day 5.
+
+
+8. PER-PERSON SUMMARY
+=====================
+
+RAHAT - PLATFORM AND INTEGRATION
+  Owns:   the contract, the fixtures, the database, auth, every Supabase call, the merge
+          transaction, the seed stages, deployment, and daily integration.
+  Day 1:  P0, P1, P2 - and nothing else matters until P1 and P2 are pushed.
+  Blocks: everyone, on Day 1. Then Omit (P7) and Firdosi (P8) on Day 3-4.
+  Watch:  do not drift into UI work. Three people depend on your contracts being stable, and
+          the merge transaction (P8) is the hardest single piece of logic in the project.
+
+OMIT - WORKSPACE
+  Owns:   the Obsidian shell, scene canvas, scene cards, branch tree, activity feed, command
+          palette, and the Zustand UI store. The surface judges look at for 90% of the video.
+  Day 1:  W1 against hardcoded content the moment C1 lands.
+  Blocks: Firdosi (C5 needs SceneCard) - so ship SceneCard early, by end of Day 2.
+  Watch:  the branch tree is your highest-risk item. Get an ugly working tree on Day 2 and
+          make it beautiful on Day 4; do not do it in the other order.
+
+FARIN - AI
+  Owns:   watsonx integration, canon context, the rule engine, continuity findings, merge
+          strategies, and every deterministic fallback.
+  Day 1:  A0. Prove the watsonx call before lunch. Then A2 against fixtures.
+  Blocks: Firdosi (C6, C7) on Day 3-4.
+  Watch:  A0 is the project's single biggest unknown. If watsonx credentials are not
+          provisioned, escalate to Rahat on Day 1 morning, not Day 3.
+
+FIRDOSI - CHARACTER, REVIEW, DESIGN
+  Owns:   the design tokens, all demo artwork, Character Studio, the visual diff, the review
+          and selective-merge UI, and the recording.
+  Day 1:  C1 in the first hour (Omit is waiting), then C2 placeholders, then C3.
+  Blocks: Omit (C1) on Day 1 - so do it first, fast, and refine later.
+  Watch:  do not perfect artwork before the flow works. Placeholders on Day 1, real art Day 3.
+
+
+9. FIVE-DAY SCHEDULE AND SYNC GATES
+===================================
+
+Gates are demonstrated on the deployed `develop` URL, not on a laptop.
+
+DAY 1 - Jul 26 - CONTRACTS
+  Rahat P0,P1,P2 | Omit W1 | Farin A0,A2 | Firdosi C1,C2
+  GATE: schemas.ts + fixtures.ts on develop. The shell renders in Obsidian colours. One
+        watsonx call has provably succeeded. Everyone has pushed to their branch.
+
+DAY 2 - Jul 27 - THE STORY IS VISIBLE
+  Rahat P3,P4 | Omit W2,W3,W4 | Farin A1,A3-stage1 | Firdosi C3,C5-start
+  GATE: S1-S4 render as cards from fixtures, both branches switchable, auth works with two
+        accounts, and the rule engine finds the compass contradiction in a unit test.
+
+DAY 3 - Jul 28 - REAL DATA AND REAL AI
+  Rahat P5,P6,P7 | Omit W5,W6 | Farin A3-stage2,A4,A6 | Firdosi C4,C5,C2-real-art
+  GATE: USE_FIXTURES=0 works. Branching from S3 works and leaves canon untouched. The
+        continuity route returns a schema-valid finding from watsonx. The tree shows the fork.
+
+DAY 4 - Jul 29 - MERGE AND FREEZE
+  Rahat P8,P9 | Omit W7,W8 | Farin A5,A7,A8 | Firdosi C6,C7
+  GATE: THE FULL JOURNEY RUNS END TO END ON THE DEPLOYED APP WITH NO MANUAL DB EDITS.
+        FEATURE FREEZE AT END OF DAY. Anything not integrated is cut.
+
+DAY 5 - Jul 30 - QA, DOCS, RECORD
+  Rahat P10 + README + secret scan | Omit W9 | Farin AI docs + fallback drill | Firdosi C8
+  GATE: lint/typecheck/test/build clean. README complete. Video recorded at <= 3:00. Repo and
+        video links verified in a private browser window.
+
+JUL 31 - SUBMIT EARLY. Buffer only: re-record a segment, fix a broken link, fix a credential.
+  No features. Submit hours before 11:59 PM ET, not minutes.
+
+DAILY RHYTHM (compressed from the team plan's three meetings to two - five days is too short
+for three):
+  Morning, 15 min: today's gate, blockers, any contract change.
+  End of day, 30 min: merge to develop, deploy, run the demo path together, Rahat runs the
+  full validation suite. A feature is not done until it works on that deployed URL.
+
+
+10. TESTING - THE MINIMUM THAT ACTUALLY MATTERS
+===============================================
+
+Do not chase coverage. Six things, with owners:
+
+  1. canon-context builds the expected CanonContext for the fixture branch      FARIN
+  2. the rule engine finds the compass contradiction, and does NOT fire on canon FARIN
+  3. Zod parsing of a valid, a malformed, and an empty model response           FARIN
+  4. createBranch does not mutate the source branch's rows                      RAHAT
+  5. mergeSelected copies exactly the selected versions, nothing else           RAHAT
+  6. SceneCard renders its fields; BranchTree renders both paths (RTL smoke)    OMIT
+
+A shipped submission with 12 meaningful tests beats an unshipped one with 60.
+
+
+11. RISKS
+=========
+
+- watsonx credentials not provisioned or the API unreachable.
+  -> A0 on Day 1 morning. This is the reason A0 exists as a separate step.
+- watsonx latency or failure during recording.
+  -> AI_MODE=fallback plus source:'rule' findings, drilled before the take.
+- Image generation is unreliable and expensive in time.
+  -> Not in the MVP. Show the assembled generation REQUEST (A7) over prepared original art.
+     State this plainly in the README - the judged idea is context-grounded generation, not
+     the pixels, and honesty about it costs nothing.
+- Merge conflicts across four people.
+  -> The ownership map in section 3, plus small daily PRs into develop, plus "only Rahat edits
+     schemas.ts".
+- Somebody blocked waiting for the backend.
+  -> Fixtures (section 6). If anyone says "I'm waiting on the API", the fixture layer has
+     failed and that is Rahat's P0.
+- Scope creep into the knowledge graph or Three.js.
+  -> They are EXTRA, below. Nobody touches them before the Day 4 gate passes.
+- RLS lockout eating half a day.
+  -> Write the policies against the two real seeded accounts and test both at P4, not at P8.
+- The app reading as a GitHub clone.
+  -> Creative vocabulary in all user-facing copy: Canon, Timeline, Story Proposal, Canon
+     Review, What-if branch. Never "commit", "PR", or "merge conflict" on screen.
+
+
+12. EXTRA - ONLY AFTER THE DAY 4 GATE PASSES
+============================================
+
+E1  World knowledge graph in the right sidebar or its own pane, Obsidian graph-view styling
+    (small dots, thin edges, hover halo). Read-only is fine.               FIRDOSI or OMIT
+E2  Three.js branch-tree overview as a zoom-out flourish on the tree page only, with the 2D
+    React Flow version always available and default.                       OMIT
+E3  Light-theme QA, scene comments, presence indicators.                    FIRDOSI
+
+Cut order if behind, first to go: E1, E2, E3, then command palette (W8), then the activity
+feed page (W7, keep the events themselves - they're in the DB either way), then Character
+Studio's live refinement (C4 - seed a pre-locked character instead).
+
+NEVER CUT: the branch tree, the locked character reference, the concrete contradiction, the
+visual diff, human-approved selective merge, the activity update, the fixtures and the
+deterministic AI path.
+
+
+13. SUBMISSION CHECKLIST (RAHAT OWNS, DAY 5)
+============================================
+
+- README: problem, solution, theme named explicitly, architecture diagram, setup from a clean
+  clone, seed command, sample data, metrics, limitations, responsible-AI controls.
+- "Built with IBM Bob": what Bob generated, what humans decided, how output was validated,
+  with concrete prompt/session evidence per person. All four members contribute their own.
+- Which watsonx model, what data is sent, and exactly where a human must approve.
+- Every team member's IBM SkillsBuild activity confirmed.
+- Repo public; video <= 3:00 and public. BOTH links opened in a private browser window.
+- No secrets in git history (not just in the current tree - check the history).
+
+
+14. WHAT CHANGED FROM REVISION 1, AND WHY
+=========================================
+
+Revision 1 of this file was written as if one person were building. Six substantive changes:
+
+1. RESTRUCTURED FROM A SEQUENCE INTO FOUR PARALLEL TRACKS. The old Steps 1-9 were a strict
+   chain; with four people that idles three of them for two days. Tracks P/W/A/C with explicit
+   cross-dependencies replace it.
+
+2. ADDED THE FIXTURES LAYER (sections 0.2 and 6). This is the change that makes parallelism
+   real. Revision 1 had the UI waiting on Supabase. Now everyone codes against typed fixtures
+   from hour one, and the same fixtures feed the seed script so mock and real data cannot
+   diverge. This also became a second offline demo fallback for free.
+
+3. PROMOTED THE WATSONX SPIKE TO STEP A0, DAY 1 MORNING. Revision 1 buried the first real
+   model call at Step 8, i.e. Day 3-4. The single largest unknown in the project was scheduled
+   last. Now it is the first thing Farin does.
+
+4. SPLIT THE CONTINUITY INSPECTOR INTO RULES + MODEL (A3). Revision 1 treated the rule engine
+   as a mere fallback for the model. That was backwards: deterministic state tracking is
+   better at FINDING the contradiction, and the language model is better at EXPLAINING it and
+   proposing a fix. Each now does what it is good at, the demo cannot silently fail, and the
+   split is a defensible architecture decision for the README rather than a hidden hack.
+
+5. ADDED STAGED SEEDS (section 4). One seed command that only produced the starting state
+   meant a broken take restarted the entire run. Four stages mean you jump forward in ten
+   seconds and keep recording.
+
+6. DROPPED THE SPINE/SKIN SPLIT AND MOVED CHARACTER STUDIO INTO A FIRST-CLASS TRACK. That
+   split was correct for a solo builder rationing time. With a dedicated owner, Character
+   Studio runs in parallel from Day 1 and there is no reason to deprioritise the demo's
+   strongest 25 seconds. The cut list in section 12 now handles prioritisation instead.
+
+Also: compressed the schedule from 8 days to the 5 that actually remain, added the file
+ownership map (section 3) and the shared-file rule, and moved feature freeze to end of Day 4.

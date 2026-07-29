@@ -10,10 +10,24 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    // Dark is the shipping theme. The light token set exists so nothing
+    // hardcodes a hex, but it is not QA'd for the hackathon build.
+    <html lang="en" className="dark">
       <body className="antialiased">
         {children}
-        <Toaster richColors position="bottom-right" />
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            classNames: {
+              toast:
+                "!bg-sv-overlay !border-sv-edge !text-sv-text !rounded-md !shadow-[var(--shadow-l2)]",
+              description: "!text-sv-muted",
+              actionButton: "!bg-sv-accent !text-sv-invert",
+              cancelButton: "!bg-sv-raised !text-sv-muted",
+            },
+          }}
+        />
       </body>
     </html>
   );
