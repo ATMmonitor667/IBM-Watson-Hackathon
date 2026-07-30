@@ -54,6 +54,21 @@ export interface Scene {
   updatedAt: string;
 }
 
+export interface SceneRevision {
+  id: string;
+  sceneId: string;
+  projectId: string;
+  branchId: string;
+  revision: number;
+  title: string;
+  location: string;
+  dialogueExcerpt: string;
+  characters: string[];
+  emotionalBeat: string;
+  contributor: SceneContributor;
+  createdAt: string;
+}
+
 export interface Branch {
   id: string;
   projectId: string;

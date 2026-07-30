@@ -13,7 +13,16 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Project, Branch, Scene, SceneStatus, SceneReviewStatus, ProjectStatus } from "@/types/workspace";
+import type { SceneEditFields } from "@/lib/story/sceneRevision";
+import type {
+  Project,
+  Branch,
+  Scene,
+  SceneRevision,
+  SceneStatus,
+  SceneReviewStatus,
+  ProjectStatus,
+} from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
 // Row types — match the database schema exactly
@@ -62,6 +71,22 @@ interface SceneRow {
   updated_at: string;
 }
 
+interface SceneRevisionRow {
+  id: string;
+  scene_id: string;
+  project_id: string;
+  branch_id: string;
+  revision: number;
+  title: string;
+  location: string;
+  dialogue_excerpt: string;
+  characters: string[];
+  emotional_beat: string;
+  contributor_id: string | null;
+  contributor_name: string;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Mappers — db rows → frontend types
 // ---------------------------------------------------------------------------
@@ -99,6 +124,26 @@ function mapBranch(row: BranchRow): Branch {
     isCanon: row.is_canon,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapSceneRevision(row: SceneRevisionRow): SceneRevision {
+  return {
+    id: row.id,
+    sceneId: row.scene_id,
+    projectId: row.project_id,
+    branchId: row.branch_id,
+    revision: row.revision,
+    title: row.title,
+    location: row.location,
+    dialogueExcerpt: row.dialogue_excerpt,
+    characters: row.characters ?? [],
+    emotionalBeat: row.emotional_beat,
+    contributor: {
+      id: row.contributor_id ?? "db",
+      displayName: row.contributor_name,
+    },
+    createdAt: row.created_at,
   };
 }
 
@@ -201,6 +246,20 @@ export async function fetchScenes(
   return ((data ?? []) as SceneRow[]).map(mapScene);
 }
 
+export async function fetchSceneRevisions(
+  client: SupabaseClient,
+  projectId: string,
+): Promise<SceneRevision[]> {
+  const { data, error } = await client
+    .from("scene_revisions")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("revision", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as SceneRevisionRow[]).map(mapSceneRevision);
+}
+
 /** Insert a new scene row. */
 export async function insertScene(
   client: SupabaseClient,
@@ -230,6 +289,30 @@ export async function insertScene(
       parent_id: scene.parentId,
     })
     .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return mapScene(data as SceneRow);
+}
+
+export async function reviseScene(
+  client: SupabaseClient,
+  sceneId: string,
+  expectedRevision: number,
+  fields: SceneEditFields,
+  contributorName: string,
+): Promise<Scene> {
+  const { data, error } = await client
+    .rpc("revise_scene", {
+      p_scene_id: sceneId,
+      p_expected_revision: expectedRevision,
+      p_title: fields.title,
+      p_location: fields.location,
+      p_dialogue_excerpt: fields.dialogueExcerpt,
+      p_characters: fields.characters,
+      p_emotional_beat: fields.emotionalBeat,
+      p_contributor_name: contributorName,
+    })
     .single();
 
   if (error) throw new Error(error.message);

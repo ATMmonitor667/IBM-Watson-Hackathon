@@ -20,7 +20,12 @@ import {
   withComputedFlags,
 } from "@/lib/ai/continuityRules";
 import { mergeSelectedScenes } from "@/lib/story/selectiveMerge";
-import type { Branch, Scene } from "@/types/workspace";
+import { createSceneRevision } from "@/lib/story/sceneRevision";
+import type {
+  Branch,
+  Scene,
+  SceneRevision,
+} from "@/types/workspace";
 
 interface ProjectPageClientProps {
   id: string;
@@ -43,6 +48,7 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
   const [scenes, setScenes] = useState<Scene[]>(
     id === "demo-1" ? DEMO_SCENES : [],
   );
+  const [sceneRevisions, setSceneRevisions] = useState<SceneRevision[]>([]);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [loadedWorkspaceKey, setLoadedWorkspaceKey] = useState(
     `mock:${id}:0`,
@@ -69,6 +75,77 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
       addActivity({ message: `Scene #${scene.sceneNumber} "${scene.title}" added`, type: "scene" });
     },
     [addActivity],
+  );
+
+  const handleSceneEdited = useCallback(
+    async (branchId: string, editedScene: Scene) => {
+      const branch = branches.find((candidate) => candidate.id === branchId);
+      const currentScene = branch?.scenes.find(
+        (candidate) => candidate.id === editedScene.id,
+      );
+      if (!branch || !currentScene) {
+        throw new Error("The branch scene no longer exists");
+      }
+      if (branch.isCanon) {
+        throw new Error("Canon scenes cannot be edited directly");
+      }
+
+      let savedScene = editedScene;
+      if (dataSource === "supabase") {
+        const [{ createClient }, { reviseScene }] = await Promise.all([
+          import("@/lib/supabase/client"),
+          import("@/lib/supabase/db"),
+        ]);
+        savedScene = await reviseScene(
+          createClient(),
+          currentScene.id,
+          currentScene.revision,
+          {
+            title: editedScene.title,
+            location: editedScene.location,
+            dialogueExcerpt: editedScene.dialogueExcerpt,
+            characters: editedScene.characters,
+            emotionalBeat: editedScene.emotionalBeat,
+          },
+          editedScene.contributor.displayName,
+        );
+      }
+
+      const previousRevision = createSceneRevision(currentScene, branchId);
+      setSceneRevisions((current) => [
+        previousRevision,
+        ...current.filter(
+          (revision) =>
+            revision.sceneId !== previousRevision.sceneId ||
+            revision.revision !== previousRevision.revision,
+        ),
+      ]);
+      setScenes((current) =>
+        current.map((scene) =>
+          scene.id === savedScene.id ? savedScene : scene,
+        ),
+      );
+      setBranches((current) =>
+        current.map((candidate) =>
+          candidate.id === branchId
+            ? {
+                ...candidate,
+                scenes: candidate.scenes.map((scene) =>
+                  scene.id === savedScene.id ? savedScene : scene,
+                ),
+                updatedAt: savedScene.updatedAt,
+              }
+            : candidate,
+        ),
+      );
+      addActivity({
+        message:
+          `Scene #${savedScene.sceneNumber} "${savedScene.title}" saved as ` +
+          `revision ${savedScene.revision}`,
+        type: "scene",
+      });
+    },
+    [addActivity, branches, dataSource],
   );
 
   const handleMergeBranch = useCallback(
@@ -189,25 +266,31 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
       if (dataSource === "mock") {
         setBranches(id === "demo-1" ? DEMO_BRANCHES : []);
         setScenes(id === "demo-1" ? DEMO_SCENES : []);
+        setSceneRevisions([]);
         setLoadedWorkspaceKey(workspaceKey);
         return;
       }
 
       try {
-        const [{ createClient }, { fetchBranches, fetchScenes }] =
+        const [
+          { createClient },
+          { fetchBranches, fetchScenes, fetchSceneRevisions },
+        ] =
           await Promise.all([
             import("@/lib/supabase/client"),
             import("@/lib/supabase/db"),
           ]);
         const client = createClient();
-        const [loadedBranches, loadedScenes] = await Promise.all([
+        const [loadedBranches, loadedScenes, loadedRevisions] = await Promise.all([
           fetchBranches(client, id),
           fetchScenes(client, id),
+          fetchSceneRevisions(client, id),
         ]);
 
         if (cancelled) return;
         setBranches(loadedBranches);
         setScenes(loadedScenes);
+        setSceneRevisions(loadedRevisions);
         setLoadedWorkspaceKey(workspaceKey);
       } catch (loadError) {
         if (cancelled) return;
@@ -319,6 +402,8 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
               <SceneDetailPanel
                 scenes={scenesWithFindings}
                 branches={branchesWithFindings}
+                revisions={sceneRevisions}
+                onSceneEdited={handleSceneEdited}
               />
             )}
             {openPanelId === "create-branch" && (

@@ -26,6 +26,9 @@ Landed:
   component changes when the database lands.
 - **The workspace shell**, driven entirely by that data: timeline switching, scene
   selection, flagged scenes, canon facts in play, and the revision trail.
+- **Revision-safe branch editing** - collaborators can edit alternate-timeline scenes,
+  while an atomic Supabase function snapshots the previous content, rejects stale edits,
+  and prevents direct canon changes.
 
 Next: Supabase schema and auth, the branch tree, the visual diff, the two-stage continuity
 inspector against watsonx, and human-approved selective merge.
@@ -73,6 +76,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Environment variables are documented in `.env.example`. The landing page runs without
 credentials; Supabase and watsonx-backed features will require their corresponding values.
+For a live Supabase project, apply the repository migrations with `supabase db push`
+before starting the app.
 
 ## Commands
 

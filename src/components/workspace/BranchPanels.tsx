@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { X, GitBranch, GitMerge, ShieldCheck, ImagePlus, Loader2, CheckCircle2, AlertTriangle, ChevronRight } from "lucide-react";
+import { X, GitBranch, GitMerge, ShieldCheck, ImagePlus, Loader2, CheckCircle2, AlertTriangle, ChevronRight, Pencil } from "lucide-react";
+import { CreateSceneForm } from "@/components/workspace/CreateSceneForm";
 import { useSceneStore } from "@/store/sceneStore";
 import { useUiStore } from "@/store/uiStore";
-import type { Scene, Branch } from "@/types/workspace";
+import type { Scene, Branch, SceneRevision } from "@/types/workspace";
 import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
 import { AppImage } from "@/components/ui/AppImage";
 import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
@@ -140,6 +141,8 @@ function SlidePanel({
 interface SceneDetailPanelProps {
   scenes: Scene[];
   branches: Branch[];
+  revisions?: SceneRevision[];
+  onSceneEdited?: (branchId: string, scene: Scene) => Promise<void>;
 }
 
 const LOCKED_CHARACTER_DESCRIPTION =
@@ -312,6 +315,8 @@ export function PanelGenerationPreview({
 export function SceneDetailPanel({
   scenes,
   branches,
+  revisions = [],
+  onSceneEdited,
 }: SceneDetailPanelProps) {
   const closePanels      = useUiStore((s) => s.closePanels);
   const openPanel        = useUiStore((s) => s.openPanel);
@@ -328,14 +333,24 @@ export function SceneDetailPanel({
   const [panelResult, setPanelResult] =
     useState<PanelGenerationResult | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const scene = scenes.find((s) => s.id === selectedSceneId);
+  const scene =
+    scenes.find((candidate) => candidate.id === selectedSceneId) ??
+    branches
+      .flatMap((candidate) => candidate.scenes)
+      .find((candidate) => candidate.id === selectedSceneId);
 
   // Determine which branch this scene belongs to and whether it's already canon
   const branch = scene
     ? branches.find((b) => b.scenes.some((sc) => sc.id === scene.id))
     : undefined;
   const isAltBranch = branch && !branch.isCanon;
+  const sceneRevisions = scene
+    ? revisions
+        .filter((revision) => revision.sceneId === scene.id)
+        .sort((left, right) => right.revision - left.revision)
+    : [];
 
   // Build a CanonContext for this scene's branch using the canon branch
   function buildCtx() {
@@ -430,15 +445,51 @@ export function SceneDetailPanel({
 
   if (!scene) return null;
 
+  if (isEditing && isAltBranch && branch && onSceneEdited) {
+    return (
+      <SlidePanel title="Edit Branch Scene" onClose={closePanels}>
+        <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
+          Saving creates revision {scene.revision + 1}. Canon remains unchanged.
+        </div>
+        <CreateSceneForm
+          projectId={scene.projectId}
+          nextSceneNumber={scene.sceneNumber}
+          initialScene={scene}
+          onSaved={async (editedScene) => {
+            await onSceneEdited(branch.id, editedScene);
+            setIsEditing(false);
+            const { toast } = await import("sonner");
+            toast.success(`Revision ${editedScene.revision} saved`, {
+              description: "The alternate branch changed; canon was untouched.",
+            });
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      </SlidePanel>
+    );
+  }
+
   return (
     <SlidePanel title="Scene Detail" onClose={closePanels}>
       <div className="flex flex-col gap-4 text-sm">
         {/* Title + number */}
-        <div>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            Scene #{scene.sceneNumber}
-          </span>
-          <h3 className="mt-0.5 text-base font-semibold text-white">{scene.title}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Scene #{scene.sceneNumber}
+            </span>
+            <h3 className="mt-0.5 text-base font-semibold text-white">{scene.title}</h3>
+          </div>
+          {isAltBranch && onSceneEdited && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-violet-400/30 bg-violet-500/10 px-2.5 py-1.5 text-xs font-medium text-violet-200 transition hover:bg-violet-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+            >
+              <Pencil className="size-3" aria-hidden="true" />
+              Edit scene
+            </button>
+          )}
         </div>
 
         {/* Location */}
@@ -461,6 +512,62 @@ export function SceneDetailPanel({
         {/* Contributor + revision */}
         <Row label="Contributor">{scene.contributor.displayName}</Row>
         <Row label="Revision">Rev {scene.revision}</Row>
+
+        <div>
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-500">
+            Revision History
+          </p>
+          <ol className="flex flex-col gap-1.5">
+            <li className="rounded-md border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-xs text-slate-300">
+              <span className="font-medium text-violet-200">
+                Rev {scene.revision} · Current
+              </span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">
+                {scene.title} · {scene.contributor.displayName}
+              </span>
+            </li>
+            {sceneRevisions.map((revision) => (
+              <li
+                key={revision.id}
+                className="rounded-md border border-white/10 bg-slate-800 px-2.5 py-2 text-xs text-slate-300"
+              >
+                <span className="font-medium text-slate-200">
+                  Rev {revision.revision}
+                </span>
+                <span className="mt-0.5 block text-[10px] text-slate-500">
+                  {revision.title} · {revision.contributor.displayName}
+                </span>
+                <details className="mt-1.5 text-[10px] text-slate-400">
+                  <summary className="cursor-pointer text-violet-300">
+                    View saved snapshot
+                  </summary>
+                  <dl className="mt-1.5 space-y-1 border-l border-white/10 pl-2">
+                    <div>
+                      <dt className="inline font-medium text-slate-300">
+                        Location:
+                      </dt>{" "}
+                      <dd className="inline">{revision.location}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-medium text-slate-300">
+                        Characters:
+                      </dt>{" "}
+                      <dd className="inline">
+                        {revision.characters.join(", ")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-slate-300">Dialogue:</dt>
+                      <dd className="mt-0.5 leading-relaxed">
+                        {revision.dialogueExcerpt}
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+              </li>
+            ))}
+          </ol>
+        </div>
 
         {/* ---- Continuity check ---- */}
         <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-slate-800/60 p-3">
@@ -1125,14 +1232,6 @@ export function CreateScenePanel({
 }: CreateScenePanelProps) {
   const closePanels = useUiStore((s) => s.closePanels);
 
-  // lazy import to keep the bundle split clean
-  const [Form, setForm] = useState<typeof import("@/components/workspace/CreateSceneForm").CreateSceneForm | null>(null);
-  useEffect(() => {
-    import("@/components/workspace/CreateSceneForm")
-      .then((m) => setForm(() => m.CreateSceneForm))
-      .catch(() => null);
-  }, []);
-
   async function handleCreated(scene: import("@/types/workspace").Scene) {
     onCreated(scene);
     closePanels();
@@ -1142,19 +1241,12 @@ export function CreateScenePanel({
 
   return (
     <SlidePanel title="New Scene" onClose={closePanels}>
-      {Form ? (
-        <Form
-          projectId={projectId}
-          nextSceneNumber={nextSceneNumber}
-          onCreated={handleCreated}
-          onCancel={closePanels}
-        />
-      ) : (
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Loading…
-        </div>
-      )}
+      <CreateSceneForm
+        projectId={projectId}
+        nextSceneNumber={nextSceneNumber}
+        onSaved={handleCreated}
+        onCancel={closePanels}
+      />
     </SlidePanel>
   );
 }

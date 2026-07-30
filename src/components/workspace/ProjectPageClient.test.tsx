@@ -7,10 +7,13 @@ import { useProjectStore } from "@/store/projectStore";
 import { useUiStore } from "@/store/uiStore";
 import type { Branch, Project, Scene } from "@/types/workspace";
 
-const { fetchBranches, fetchScenes } = vi.hoisted(() => ({
+const { fetchBranches, fetchScenes, fetchSceneRevisions, reviseScene } =
+  vi.hoisted(() => ({
   fetchBranches: vi.fn(),
   fetchScenes: vi.fn(),
-}));
+  fetchSceneRevisions: vi.fn(),
+  reviseScene: vi.fn(),
+  }));
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ source: "test-client" }),
@@ -19,6 +22,8 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("@/lib/supabase/db", () => ({
   fetchBranches,
   fetchScenes,
+  fetchSceneRevisions,
+  reviseScene,
 }));
 
 vi.mock("@/components/workspace/BranchTree", () => ({
@@ -58,7 +63,30 @@ vi.mock("@/components/workspace/StateViews", () => ({
 }));
 
 vi.mock("@/components/workspace/BranchPanels", () => ({
-  SceneDetailPanel: () => null,
+  SceneDetailPanel: ({
+    branches,
+    onSceneEdited,
+  }: {
+    branches: Branch[];
+    onSceneEdited: (branchId: string, scene: Scene) => Promise<void>;
+  }) => {
+    const alternateBranch = branches.find((candidate) => !candidate.isCanon);
+    const editableScene = alternateBranch?.scenes[0];
+    return alternateBranch && editableScene ? (
+      <button
+        type="button"
+        onClick={() =>
+          onSceneEdited(alternateBranch.id, {
+            ...editableScene,
+            title: "Edited Branch Scene",
+            revision: editableScene.revision + 1,
+          })
+        }
+      >
+        Save branch revision
+      </button>
+    ) : null;
+  },
   CreateBranchPanel: () => null,
   CreateScenePanel: () => null,
   MergePreviewPanel: ({
@@ -120,10 +148,31 @@ const scene: Scene = {
   updatedAt: "2026-07-30T12:00:00.000Z",
 };
 
+const alternateScene: Scene = {
+  ...scene,
+  id: "scene-alt-1",
+  title: "Alternate Scene",
+  status: "draft",
+};
+
+const alternateBranch: Branch = {
+  ...branch,
+  id: "branch-alternate",
+  name: "Alternate Branch",
+  scenes: [alternateScene],
+  isCanon: false,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   fetchBranches.mockResolvedValue([branch]);
   fetchScenes.mockResolvedValue([scene]);
+  fetchSceneRevisions.mockResolvedValue([]);
+  reviseScene.mockResolvedValue({
+    ...alternateScene,
+    title: "Edited Branch Scene",
+    revision: 2,
+  });
   useProjectStore.setState({
     projects: [project],
     isLoading: false,
@@ -154,6 +203,10 @@ describe("ProjectPageClient workspace loading", () => {
       project.id,
     );
     expect(fetchScenes).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "test-client" }),
+      project.id,
+    );
+    expect(fetchSceneRevisions).toHaveBeenCalledWith(
       expect.objectContaining({ source: "test-client" }),
       project.id,
     );
@@ -214,5 +267,35 @@ describe("ProjectPageClient workspace loading", () => {
     expect(screen.getByTestId("branch-tree")).toHaveTextContent(
       "The Tunnel Route:false:The Hidden Tunnel:Merged|The Drowned Engine Room:Draft",
     );
+  });
+
+  it("persists a new revision for an alternate scene", async () => {
+    const user = userEvent.setup();
+    fetchBranches.mockResolvedValue([branch, alternateBranch]);
+    fetchScenes.mockResolvedValue([scene, alternateScene]);
+    useUiStore.setState({
+      openPanelId: "scene-detail",
+      mergeBranchId: null,
+    });
+
+    render(<ProjectPageClient id={project.id} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Save branch revision" }),
+    );
+
+    await waitFor(() => {
+      expect(reviseScene).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "test-client" }),
+        alternateScene.id,
+        1,
+        expect.objectContaining({ title: "Edited Branch Scene" }),
+        alternateScene.contributor.displayName,
+      );
+    });
+    expect(screen.getByTestId("scene-canvas")).toHaveTextContent(
+      "Edited Branch Scene",
+    );
+    expect(scene.title).toBe("Live Scene");
   });
 });
