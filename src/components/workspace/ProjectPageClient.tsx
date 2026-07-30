@@ -32,7 +32,8 @@ const prefersReduced =
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function ProjectPageClient({ id }: ProjectPageClientProps) {
-  const { loadProjects, getProject, isLoading, error } = useProjectStore();
+  const { loadProjects, getProject, isLoading, error, dataSource } =
+    useProjectStore();
   const [retryKey, setRetryKey] = useState(0);
 
   // Branch + scene state — seeded from mock, mutated on branch create / merge
@@ -42,8 +43,13 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
   const [scenes, setScenes] = useState<Scene[]>(
     id === "demo-1" ? DEMO_SCENES : [],
   );
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [loadedWorkspaceKey, setLoadedWorkspaceKey] = useState(
+    `mock:${id}:0`,
+  );
   // Whether a "re-fetch" is in progress after merge
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const workspaceKey = `${dataSource}:${id}:${retryKey}`;
 
   const openPanelId   = useUiStore((s) => s.openPanelId);
   const clearSelection = useSceneStore((s) => s.clearSelection);
@@ -165,12 +171,64 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
     loadProjects();
   }, [loadProjects, retryKey]);
 
-  if (isLoading) return <WorkspacePageSkeleton />;
+  useEffect(() => {
+    let cancelled = false;
 
-  if (error) {
+    async function loadWorkspace() {
+      setWorkspaceError(null);
+
+      if (dataSource === "mock") {
+        setBranches(id === "demo-1" ? DEMO_BRANCHES : []);
+        setScenes(id === "demo-1" ? DEMO_SCENES : []);
+        setLoadedWorkspaceKey(workspaceKey);
+        return;
+      }
+
+      try {
+        const [{ createClient }, { fetchBranches, fetchScenes }] =
+          await Promise.all([
+            import("@/lib/supabase/client"),
+            import("@/lib/supabase/db"),
+          ]);
+        const client = createClient();
+        const [loadedBranches, loadedScenes] = await Promise.all([
+          fetchBranches(client, id),
+          fetchScenes(client, id),
+        ]);
+
+        if (cancelled) return;
+        setBranches(loadedBranches);
+        setScenes(loadedScenes);
+        setLoadedWorkspaceKey(workspaceKey);
+      } catch (loadError) {
+        if (cancelled) return;
+        const message =
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load workspace data";
+        setWorkspaceError(message);
+        setLoadedWorkspaceKey(workspaceKey);
+      }
+    }
+
+    void loadWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSource, id, workspaceKey]);
+
+  if (isLoading || loadedWorkspaceKey !== workspaceKey) {
+    return <WorkspacePageSkeleton />;
+  }
+
+  if (error || workspaceError) {
     return (
       <div className="flex h-full items-center justify-center">
-        <ErrorState message={error} onRetry={() => setRetryKey((k) => k + 1)} />
+        <ErrorState
+          message={workspaceError ?? error ?? "Failed to load project"}
+          onRetry={() => setRetryKey((k) => k + 1)}
+        />
       </div>
     );
   }
