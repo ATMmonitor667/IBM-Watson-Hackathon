@@ -13,7 +13,9 @@ const ALT_SCENES_A: Scene[] = [
     location: "Underground Aqueduct",
     dialogueExcerpt:
       '"If the market is too dangerous, we go under it," Kael said, tracing the old map with his finger.',
+    action: "Kael abandons the lighthouse route and leads Mira into the aqueduct.",
     characters: ["Kael", "Mira"],
+    propsUsed: ["The Compass", "Aqueduct map"],
     emotionalBeat: "Hope",
     reviewStatus: "Under Review",
     continuityFlag: undefined,
@@ -34,7 +36,9 @@ const ALT_SCENES_A: Scene[] = [
     location: "Old Power Station",
     dialogueExcerpt:
       "The turbines still turned. Nobody had switched them off. Nobody had been able to.",
+    action: "Kael and Mira discover the Archivist beside the turning turbines.",
     characters: ["Kael", "Mira", "The Archivist"],
+    propsUsed: ["The Compass", "Engine controls"],
     emotionalBeat: "Unease",
     reviewStatus: "Draft",
     imageUrl: undefined,
