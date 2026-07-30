@@ -82,7 +82,34 @@ npm run build      # Create a production build
 npm run lint       # Run ESLint
 npm run typecheck  # Check TypeScript
 npm test           # Run the test suite once
+
+npm run scan:secrets            # Scan ALL git history for committed credentials
+npm run scan:secrets -- --tree  # Scan only the current working tree (fast)
 ```
+
+## Secrets
+
+No credential belongs in this repository. `.gitignore` excludes every `.env*`
+file except `.env.example`, which holds names with empty values only.
+
+`npm run scan:secrets` checks the **entire git history**, not just the working
+tree. That distinction matters: a key that was committed and later deleted is
+still in the history, still fetchable by anyone who clones the repo, and still
+disqualifying. Deleting the file does not undo the leak.
+
+Run it before making the repository public and before submitting. It exits
+non-zero when it finds something, so it also works as a CI gate.
+
+**If it ever reports a real credential**, the order matters:
+
+1. **Revoke the key at the provider first.** Assume it is compromised — once
+   pushed, it may already be indexed. Rewriting history does not un-publish it.
+2. Then purge it from history (`git filter-repo`) and force-push.
+3. Only then fix the code that referenced it.
+
+The scanner is a safety net, not a proof: it catches the credential shapes this
+project uses plus common vendor formats. `src/test/scan-secrets.test.ts` proves
+it fires on real shapes and stays quiet on this repo's placeholders.
 
 ## Troubleshooting
 
