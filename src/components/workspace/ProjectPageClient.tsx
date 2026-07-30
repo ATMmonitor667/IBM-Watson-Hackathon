@@ -12,7 +12,6 @@ import { SceneCanvas } from "@/components/workspace/SceneCanvas";
 import { SceneDetailPanel, CreateBranchPanel, CreateScenePanel, MergePreviewPanel } from "@/components/workspace/BranchPanels";
 import { useProjectStore } from "@/store/projectStore";
 import { useUiStore } from "@/store/uiStore";
-import { useSceneStore } from "@/store/sceneStore";
 import { useActivityStore } from "@/store/activityStore";
 import { DEMO_SCENES } from "@/lib/mock/demoScenes";
 import { DEMO_BRANCHES } from "@/lib/mock/demoBranches";
@@ -20,7 +19,8 @@ import {
   continuityFlagsFor,
   withComputedFlags,
 } from "@/lib/ai/continuityRules";
-import type { Branch, Scene, SceneReviewStatus } from "@/types/workspace";
+import { mergeSelectedScenes } from "@/lib/story/selectiveMerge";
+import type { Branch, Scene } from "@/types/workspace";
 
 interface ProjectPageClientProps {
   id: string;
@@ -52,7 +52,6 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
   const workspaceKey = `${dataSource}:${id}:${retryKey}`;
 
   const openPanelId   = useUiStore((s) => s.openPanelId);
-  const clearSelection = useSceneStore((s) => s.clearSelection);
   const addActivity    = useActivityStore((s) => s.addEntry);
   const activityEntries = useActivityStore((s) => s.entries);
 
@@ -72,68 +71,78 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
     [addActivity],
   );
 
-  /**
-   * Step 29 — Refresh after merge
-   * 1. Mark all scenes in the merged branch as "Merged"
-   * 2. Update the branch to isCanon = true
-   * 3. Clear selectedSceneId if it no longer has a live node
-   * 4. Simulate a re-fetch (shows loading indicator)
-   * 5. Add an activity entry
-   */
   const handleMergeBranch = useCallback(
-    async (branchId: string) => {
+    async (branchId: string, selectedSceneIds: string[]) => {
       const branch = branches.find((b) => b.id === branchId);
-      if (!branch) return;
+      const canonBranch = branches.find((candidate) => candidate.isCanon);
+      if (!branch || !canonBranch || selectedSceneIds.length === 0) return;
 
       setIsRefreshing(true);
 
-      // Simulate network re-fetch delay
       await new Promise((r) => setTimeout(r, prefersReduced ? 0 : 600));
-
-      // Mark every scene in the merged branch as "Merged"
-      const mergedSceneIds = new Set(branch.scenes.map((s) => s.id));
-
-      setScenes((prev) =>
-        prev.map((sc) =>
-          mergedSceneIds.has(sc.id)
-            ? { ...sc, reviewStatus: "Merged" as SceneReviewStatus }
-            : sc,
-        ),
+      const mergedAt = new Date().toISOString();
+      const result = mergeSelectedScenes(
+        canonBranch,
+        branch,
+        selectedSceneIds,
+        mergedAt,
       );
+      const mergedCanonById = new Map(
+        result.canonBranch.scenes.map((scene) => [scene.id, scene]),
+      );
+      const mergedBranchIds = new Set(result.mergedBranchSceneIds);
+
+      setScenes((prev) => {
+        const nextScenes = prev.map((scene) => {
+          const mergedCanonScene = mergedCanonById.get(scene.id);
+          if (mergedCanonScene) return mergedCanonScene;
+          if (mergedBranchIds.has(scene.id)) {
+            return {
+              ...scene,
+              reviewStatus: "Merged" as const,
+              updatedAt: mergedAt,
+            };
+          }
+          return scene;
+        });
+
+        for (const mergedScene of result.mergedScenes) {
+          if (!nextScenes.some((scene) => scene.id === mergedScene.id)) {
+            nextScenes.push(mergedScene);
+          }
+        }
+        return nextScenes;
+      });
 
       setBranches((prev) =>
-        prev.map((b) =>
-          b.id === branchId
-            ? {
-                ...b,
-                isCanon: true,
-                updatedAt: new Date().toISOString(),
-                scenes: b.scenes.map((sc) => ({
-                  ...sc,
-                  reviewStatus: "Merged" as SceneReviewStatus,
-                })),
-              }
-            : b,
-        ),
+        prev.map((candidate) => {
+          if (candidate.id === result.canonBranch.id) {
+            return result.canonBranch;
+          }
+          if (candidate.id === result.sourceBranch.id) {
+            return result.sourceBranch;
+          }
+          return candidate;
+        }),
       );
 
-      // Clear stale selection if the selected scene was inside the merged branch
-      clearSelection();
-
       addActivity({
-        message: `Branch "${branch.name}" merged into canon`,
+        message:
+          `${result.mergedBranchSceneIds.length} scene(s) from ` +
+          `"${branch.name}" merged into canon`,
         type: "merge",
       });
 
       setIsRefreshing(false);
 
-      // Sonner toast
       const { toast } = await import("sonner");
-      toast.success(`Branch "${branch.name}" merged`, {
-        description: `${branch.scenes.length} scene(s) marked as Merged.`,
+      toast.success(`Selected scenes merged from "${branch.name}"`, {
+        description:
+          `${result.mergedBranchSceneIds.length} scene(s) changed canon; ` +
+          "unchecked scenes were left on the branch.",
       });
     },
-    [branches, clearSelection, addActivity],
+    [branches, addActivity],
   );
 
   /**
