@@ -194,6 +194,15 @@ Storyverse treats AI output as a proposal. Continuity findings, generated assets
 suggestions, and merge strategies must remain explainable, reviewable, reversible, and subject
 to creator approval. Original visual styles are preferred over imitation of named living artists.
 
+### Panel preview limitation
+
+Panel images are not generated live in this prototype. The panel flow returns a prepared demo
+asset so the judge path remains fast, deterministic, and usable without an image-model account.
+Alongside that asset, the interface displays the complete request that a future image pipeline
+would receive: the locked character description, canon facts, scene description, style
+instruction, project and scene identifiers, and fallback flag. A creator must still review and
+approve the result before it can become part of the story.
+
 ## Built with IBM Bob
 
 IBM Bob is the primary development tool for this challenge entry. The team will record Bob's

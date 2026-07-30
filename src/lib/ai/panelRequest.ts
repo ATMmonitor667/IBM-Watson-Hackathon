@@ -9,6 +9,8 @@
  * This module is pure — no I/O, no network calls.
  */
 
+import { z } from "zod";
+
 import type { CanonContext, PanelGenerationRequest } from "./schemas";
 import { PanelGenerationRequestSchema } from "./schemas";
 
@@ -32,6 +34,21 @@ export interface PanelFallbackResult {
   /** The full request that would have been sent to the image model */
   request: PanelGenerationRequest;
 }
+
+/**
+ * Runtime contract returned by POST /api/ai/panel-generate.
+ *
+ * The browser validates this before showing the result so a partial response
+ * can never make prepared artwork look like a successful live generation.
+ */
+export const PanelGenerationResultSchema = z.object({
+  assetUrl: z.string().min(1),
+  request: PanelGenerationRequestSchema,
+  isFallback: z.boolean(),
+});
+export type PanelGenerationResult = z.infer<
+  typeof PanelGenerationResultSchema
+>;
 
 // ---------------------------------------------------------------------------
 // Prepared fallback asset — used when the image pipeline is unavailable

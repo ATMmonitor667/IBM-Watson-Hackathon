@@ -10,6 +10,12 @@ import { AppImage } from "@/components/ui/AppImage";
 import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
 import { buildCanonContext } from "@/lib/ai/contextBuilder";
+import {
+  buildPanelRequest,
+  PanelGenerationResultSchema,
+  type PanelGenerationResult,
+} from "@/lib/ai/panelRequest";
+import { AI_FALLBACK_LABEL } from "@/lib/ai/responsibleAI";
 
 // ---------------------------------------------------------------------------
 // Focusable element selector (standard interactive elements)
@@ -132,6 +138,173 @@ interface SceneDetailPanelProps {
   branches: Branch[];
 }
 
+const LOCKED_CHARACTER_DESCRIPTION =
+  "Kael — explorer, mid-30s, worn leather coat, glowing compass on his belt.";
+const PANEL_STYLE_INSTRUCTION =
+  "graphic novel, high-contrast ink lines, muted blues and earth tones";
+
+/**
+ * Convert the workspace's structured scene fields into explicit canon facts.
+ * The workspace model does not yet persist a dedicated facts collection, so
+ * location and cast are the stable project constraints available today.
+ */
+function toContextScene(scene: Scene) {
+  return {
+    sceneNumber: scene.sceneNumber,
+    title: scene.title,
+    facts: [
+      {
+        key: `scene_${scene.sceneNumber}_location`,
+        value: scene.location,
+        lockedInScene: scene.sceneNumber,
+      },
+      {
+        key: `scene_${scene.sceneNumber}_cast`,
+        value: scene.characters.join(", "),
+        lockedInScene: scene.sceneNumber,
+      },
+    ],
+  };
+}
+
+export function PanelGenerationPreview({
+  result,
+  sceneTitle,
+}: {
+  result: PanelGenerationResult;
+  sceneTitle: string;
+}) {
+  const { request } = result;
+
+  return (
+    <section
+      aria-labelledby="panel-generation-result-title"
+      className="flex flex-col gap-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h4
+          id="panel-generation-result-title"
+          className="text-xs font-semibold text-slate-200"
+        >
+          Prepared panel preview
+        </h4>
+        {result.isFallback && (
+          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-200">
+            {AI_FALLBACK_LABEL}
+          </span>
+        )}
+      </div>
+
+      <AppImage
+        src={result.assetUrl}
+        alt={`Prepared demo panel for scene: ${sceneTitle}`}
+        className="w-full rounded-md border border-white/10 object-cover"
+      />
+
+      <div className="rounded-md border border-white/10 bg-slate-950/50 p-3">
+        <h5 className="text-xs font-semibold text-slate-200">
+          Assembled image request
+        </h5>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+          Review the exact constraints that would be sent to an image model.
+        </p>
+
+        <dl className="mt-3 space-y-3 text-[11px]">
+          <div>
+            <dt className="font-medium uppercase tracking-wide text-slate-500">
+              Locked character description
+            </dt>
+            <dd className="mt-0.5 text-slate-200">
+              {request.lockedCharacterDescription}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium uppercase tracking-wide text-slate-500">
+              Canon facts
+            </dt>
+            <dd className="mt-1">
+              {request.canonFacts.length > 0 ? (
+                <ul className="space-y-1.5">
+                  {request.canonFacts.map((fact) => (
+                    <li
+                      key={`${fact.key}-${fact.lockedInScene}`}
+                      className="rounded border border-white/10 bg-slate-900/70 p-2 text-slate-300"
+                    >
+                      <span className="font-medium text-slate-200">
+                        {fact.key}
+                      </span>
+                      {": "}
+                      {fact.value}
+                      <span className="block text-slate-500">
+                        Locked in scene {fact.lockedInScene}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-amber-300">No canon facts supplied.</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium uppercase tracking-wide text-slate-500">
+              Scene description
+            </dt>
+            <dd className="mt-0.5 text-slate-200">
+              {request.sceneDescription}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium uppercase tracking-wide text-slate-500">
+              Style instruction
+            </dt>
+            <dd className="mt-0.5 text-slate-200">
+              {request.styleInstruction}
+            </dd>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <dt className="font-medium uppercase tracking-wide text-slate-500">
+                Project
+              </dt>
+              <dd className="mt-0.5 break-all text-slate-200">
+                {request.projectId}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium uppercase tracking-wide text-slate-500">
+                Scene
+              </dt>
+              <dd className="mt-0.5 break-all text-slate-200">
+                {request.sceneId}
+              </dd>
+            </div>
+          </div>
+          <div>
+            <dt className="font-medium uppercase tracking-wide text-slate-500">
+              Fallback requested
+            </dt>
+            <dd className="mt-0.5 text-slate-200">
+              {request.useFallback ? "Yes" : "No"}
+            </dd>
+          </div>
+        </dl>
+
+        <details className="mt-3">
+          <summary className="cursor-pointer text-[11px] font-medium text-violet-300">
+            View full request JSON
+          </summary>
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 p-2 text-[10px] leading-relaxed text-slate-400">
+            {JSON.stringify(request, null, 2)}
+          </pre>
+        </details>
+      </div>
+
+      <AiDisclaimer feature="panelGeneration" />
+    </section>
+  );
+}
+
 export function SceneDetailPanel({
   scenes,
   branches,
@@ -147,9 +320,10 @@ export function SceneDetailPanel({
   const [continuityError, setContinuityError]     = useState<string | null>(null);
 
   // Generate panel state
-  const [panelLoading, setPanelLoading]   = useState(false);
-  const [panelImageUrl, setPanelImageUrl] = useState<string | null>(null);
-  const [panelError, setPanelError]       = useState<string | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelResult, setPanelResult] =
+    useState<PanelGenerationResult | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
 
   const scene = scenes.find((s) => s.id === selectedSceneId);
 
@@ -168,21 +342,15 @@ export function SceneDetailPanel({
       {
         name: targetBranch.name,
         isCanon: targetBranch.isCanon,
-        scenes: targetBranch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
+        scenes: targetBranch.scenes.map(toContextScene),
       },
       {
         name: canonBranch.name,
         isCanon: true,
-        scenes: canonBranch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
+        scenes: canonBranch.scenes.map(toContextScene),
       },
       scene.projectId,
-      "Kael — explorer, mid-30s, worn leather coat, glowing compass on his belt.",
+      LOCKED_CHARACTER_DESCRIPTION,
     );
   }
 
@@ -213,23 +381,28 @@ export function SceneDetailPanel({
   }
 
   async function handleGeneratePanel() {
-    if (!scene) return;
+    const ctx = buildCtx();
+    if (!scene || !ctx) {
+      setPanelError("Project context is unavailable for this scene.");
+      return;
+    }
+
     setPanelLoading(true);
     setPanelError(null);
-    setPanelImageUrl(null);
+    setPanelResult(null);
     try {
+      const request = buildPanelRequest({
+        projectId: scene.projectId,
+        sceneId: scene.id,
+        sceneDescription: `${scene.title}: ${scene.dialogueExcerpt}`,
+        styleInstruction: PANEL_STYLE_INSTRUCTION,
+        ctx,
+      });
       const res = await fetch("/api/ai/panel-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId: scene.projectId,
-          sceneId: scene.id,
-          lockedCharacterDescription:
-            "Kael — explorer, mid-30s, worn leather coat, glowing compass on his belt.",
-          canonFacts: [],
-          sceneDescription: `${scene.title}: ${scene.dialogueExcerpt}`,
-          styleInstruction:
-            "graphic novel, high-contrast ink lines, muted blues and earth tones",
+          ...request,
           useFallback: true,
         }),
       });
@@ -238,8 +411,12 @@ export function SceneDetailPanel({
         setPanelError(body.error ?? `HTTP ${res.status}`);
         return;
       }
-      const data = (await res.json()) as { assetUrl: string };
-      setPanelImageUrl(data.assetUrl);
+      const parsed = PanelGenerationResultSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        setPanelError("Panel service returned an invalid response.");
+        return;
+      }
+      setPanelResult(parsed.data);
     } catch (err) {
       setPanelError(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -356,7 +533,7 @@ export function SceneDetailPanel({
               ) : (
                 <ImagePlus className="size-3" aria-hidden="true" />
               )}
-              {panelLoading ? "Generating…" : "Generate panel"}
+              {panelLoading ? "Preparing…" : "Prepare panel"}
             </button>
           </div>
 
@@ -364,20 +541,17 @@ export function SceneDetailPanel({
             <p role="alert" className="text-xs text-red-400">{panelError}</p>
           )}
 
-          {panelImageUrl && (
-            <div className="flex flex-col gap-2">
-              <AppImage
-                src={panelImageUrl}
-                alt={`AI-generated panel for scene: ${scene.title}`}
-                className="w-full rounded-md border border-white/10 object-cover"
-              />
-              <AiDisclaimer feature="panelGeneration" />
-            </div>
+          {panelResult && (
+            <PanelGenerationPreview
+              result={panelResult}
+              sceneTitle={scene.title}
+            />
           )}
 
-          {!panelImageUrl && !panelError && (
+          {!panelResult && !panelError && (
             <p className="text-[11px] text-slate-500">
-              Uses locked character + canon context. Deterministic fallback active.
+              Prepares demo artwork and shows the locked character, canon facts,
+              scene description, and style instruction. No image model is called.
             </p>
           )}
         </div>
