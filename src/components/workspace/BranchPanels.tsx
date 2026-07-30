@@ -6,6 +6,7 @@ import { useSceneStore } from "@/store/sceneStore";
 import { useUiStore } from "@/store/uiStore";
 import type { Scene, Branch } from "@/types/workspace";
 import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
+import { AppImage } from "@/components/ui/AppImage";
 import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
 import { buildCanonContext } from "@/lib/ai/contextBuilder";
@@ -365,8 +366,7 @@ export function SceneDetailPanel({
 
           {panelImageUrl && (
             <div className="flex flex-col gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <AppImage
                 src={panelImageUrl}
                 alt={`AI-generated panel for scene: ${scene.title}`}
                 className="w-full rounded-md border border-white/10 object-cover"

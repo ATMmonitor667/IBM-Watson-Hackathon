@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ImageIcon } from "lucide-react";
+import { AppImage } from "@/components/ui/AppImage";
 import type { Scene } from "@/types/workspace";
 
 interface BranchDiffViewProps {
@@ -14,7 +15,7 @@ function ScenePane({ scene, label }: { scene?: Scene; label: string }) {
     <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-800">
       <div className="relative h-28 w-full bg-slate-900">
         {scene?.imageUrl ? (
-          <img
+          <AppImage
             src={scene.imageUrl}
             alt={`Panel for ${scene.title}`}
             className="h-full w-full object-cover"

@@ -2,6 +2,7 @@
 
 import type { Scene, SceneReviewStatus } from "@/types/workspace";
 import { useSceneStore } from "@/store/sceneStore";
+import { AppImage } from "@/components/ui/AppImage";
 import { ImageIcon, TriangleAlert } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ export function SceneCard({ scene }: SceneCardProps) {
       {/* Panel image */}
       <div className="relative h-32 w-full overflow-hidden bg-slate-800">
         {scene.imageUrl ? (
-          <img
+          <AppImage
             src={scene.imageUrl}
             alt={`Panel image for scene ${scene.sceneNumber}: ${scene.title}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

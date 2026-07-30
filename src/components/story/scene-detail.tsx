@@ -3,6 +3,7 @@
 import { ImageIcon } from "lucide-react";
 
 import { BranchChip, StateChip } from "@/components/story/state-chip";
+import { AppImage } from "@/components/ui/AppImage";
 import { RelativeTime } from "@/components/ui/relative-time";
 import { Box, BoxBody, BoxHeader } from "@/components/ui/box";
 import { FindingCard } from "@/components/review/finding-card";
@@ -82,8 +83,7 @@ export function SceneDetail({ sceneId }: { sceneId: string }) {
 
       <div className="overflow-hidden rounded-lg border border-sv-edge bg-sv-inset">
         {scene.version.panel_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <AppImage
             src={scene.version.panel_image_url}
             alt={`Panel for ${scene.title}`}
             className="aspect-video w-full object-cover"
