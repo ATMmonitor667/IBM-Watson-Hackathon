@@ -87,6 +87,27 @@ npm run scan:secrets            # Scan ALL git history for committed credentials
 npm run scan:secrets -- --tree  # Scan only the current working tree (fast)
 ```
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and every pull request:
+
+| Gate | Command | Why it is a gate |
+| --- | --- | --- |
+| Install | `npm ci` | Proves a clean clone installs — a judge's first experience |
+| Lint | `npm run lint` | Currently zero warnings; keeps it that way |
+| Typecheck | `npm run typecheck` | Has silently broken three times; this stops a fourth |
+| Test | `npm test` | Includes the barrel-file guard and the secret-scanner tests |
+| Secret scan | `npm run scan:secrets` | Full history, so checkout uses `fetch-depth: 0` |
+| Build | `npm run build` | Runs with `AI_MOCK=true` — must succeed with no credentials |
+
+Steps run cheapest-first, and each runs even if an earlier one failed, so one
+push surfaces every problem instead of one per fix.
+
+**CI uses `npm ci`, not `npm install`.** It fails outright when
+`package-lock.json` drifts from `package.json` — which is exactly the breakage
+someone hits cloning the repo fresh. If a dependency change is rejected there,
+run `npm install` and commit the updated lockfile.
+
 ## Secrets
 
 No credential belongs in this repository. `.gitignore` excludes every `.env*`
