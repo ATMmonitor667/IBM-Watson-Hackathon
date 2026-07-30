@@ -1,4 +1,6 @@
 import { Users } from "lucide-react";
+
+import { DataSourceBadge } from "@/components/workspace/DataSourceBadge";
 import type { ProjectStatus } from "@/types/workspace";
 
 interface ProjectHeaderProps {
@@ -41,6 +43,7 @@ export function ProjectHeader({
         >
           {status}
         </span>
+        <DataSourceBadge />
       </div>
 
       {/* Right: meta info */}
