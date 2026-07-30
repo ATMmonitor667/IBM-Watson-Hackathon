@@ -4,6 +4,16 @@ import type { Scene } from "@/types/workspace";
 // Hard-coded demo scenes for "The Flooded City" (project id: "demo-1")
 // Used until the real scene API is wired up.
 // Field names match the shared Scene type in src/types/workspace.ts
+//
+// NOTE: `continuityFlag` is deliberately left undefined on every scene. Those
+// findings are COMPUTED by src/lib/ai/continuityRules.ts from the structured
+// fields below — writing them out here would mean the app displays a finding
+// nothing actually detected. A test enforces this (continuityRules.test.ts,
+// "the demo data no longer carries written-out findings").
+//
+// The fields the engine reads are `characters` and `dialogueExcerpt`. Keep them
+// consistent with each other when editing a scene, or the engine will correctly
+// tell you that you did not.
 // ---------------------------------------------------------------------------
 
 export const DEMO_SCENES: Scene[] = [
@@ -39,7 +49,7 @@ export const DEMO_SCENES: Scene[] = [
     characters: ["Kael", "Mira", "The Ferryman"],
     emotionalBeat: "Melancholy",
     reviewStatus: "Under Review",
-    continuityFlag: "The Ferryman is introduced here but has no prior mention — consider a brief setup in Scene 1.",
+    continuityFlag: undefined,
     imageUrl: undefined,
     contributor: { id: "user-2", displayName: "Theo Park" },
     revision: 2,
@@ -81,7 +91,7 @@ export const DEMO_SCENES: Scene[] = [
     characters: ["Kael", "The Archivist"],
     emotionalBeat: "Wonder",
     reviewStatus: "Approved",
-    continuityFlag: "The Archivist speaks of 'the old pact' — no prior mention of this pact exists in earlier scenes.",
+    continuityFlag: undefined,
     imageUrl: undefined,
     contributor: { id: "user-3", displayName: "Rahat Islam" },
     revision: 3,

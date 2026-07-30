@@ -1,97 +1,90 @@
-import type { BranchReview } from "@/types/review";
+import { reviewBranch, type ComputedFinding } from "@/lib/ai/continuityRules";
+import { DEMO_BRANCHES } from "@/lib/mock/demoBranches";
+import type { BranchReview, ContinuityFinding } from "@/types/review";
 
 // ---------------------------------------------------------------------------
-// Demo continuity review for the "The Tunnel Route" branch (branch-tunnel).
+// Continuity review for "The Tunnel Route" (branch-tunnel).
 //
-// Referenced by src/store/reviewStore.ts (runContinuityReview). Branch and
-// scene ids match src/lib/mock/demoBranches.ts and demoScenes.ts.
+// THE FINDINGS ARE COMPUTED, NOT WRITTEN (issue #8 / D3). They come from
+// src/lib/ai/continuityRules.ts reading the scene data in demoScenes.ts and
+// demoBranches.ts. Change a scene's cast or dialogue and this review changes
+// with it — which is the entire point. Do not paste findings in here by hand.
 //
-// MOCK: this is the shape Farin's continuity inspector + merge assistant must
-// return. It is a stand-in for the response, NOT a stand-in for the detection —
-// issue #8 in STORYVERSE_TODO.txt replaces the finding below with one computed
-// by the rule engine from scene data. Keep the shape; replace the source.
+// The MERGE STRATEGIES below are still written out. Those are the merge
+// assistant's job (issue #25 / D5), not the rule engine's — an engine can find
+// a contradiction but it cannot weigh what a team should do about it. They are
+// the next thing to become real.
 //
-// Every finding cites a specific scene and quotes concrete evidence, because a
-// finding a reviewer cannot verify is an opinion (PRD §20).
+// Referenced by src/store/reviewStore.ts (runContinuityReview).
 // ---------------------------------------------------------------------------
+
+const TUNNEL_BRANCH_ID = "branch-tunnel";
+
+/**
+ * Adapt the engine's output to the review UI's contract.
+ *
+ * The engine emits evidence as a list of field values; the review type wants a
+ * single string. They are joined rather than summarised, because the whole
+ * value of the evidence is that a reviewer can check it against the scene.
+ */
+function toReviewFinding(finding: ComputedFinding): ContinuityFinding {
+  return {
+    id: finding.id,
+    severity: finding.severity,
+    title: finding.title,
+    evidence: finding.evidence.join(" · "),
+    affectedSceneId: finding.sceneId,
+    explanation: finding.message,
+    suggestedFix: finding.suggestedFix,
+  };
+}
+
+const tunnel = DEMO_BRANCHES.find((b) => b.id === TUNNEL_BRANCH_ID);
 
 export const DEMO_BRANCH_REVIEW: BranchReview = {
   id: "review-branch-tunnel",
-  branchId: "branch-tunnel",
+  branchId: TUNNEL_BRANCH_ID,
   status: "pending",
-  findings: [
-    {
-      id: "finding-compass-possession",
-      severity: "high",
-      title: "The compass is used after it was handed over",
-      evidence:
-        'scene-alt-2a hands the compass to the Ferryman ("Take it — I can find ' +
-        'the gate without it"), but scene-alt-2b still lists "The Compass" in ' +
-        "its characters and has Kael read a bearing from it.",
-      affectedSceneId: "scene-alt-2b",
-      explanation:
-        "Canon establishes the compass in Kael's possession from Scene 1. This " +
-        "branch transfers it to the Ferryman and then keeps using it two scenes " +
-        "later. The prop cannot be in both hands at once, so one of the two " +
-        "scenes has to give.",
-      suggestedFix:
-        "Either have the Ferryman return the compass before the gate, or " +
-        "rewrite the bearing so Kael navigates by Mira's signal instead — " +
-        "which also pays off the cost of giving it away.",
-    },
-    {
-      id: "finding-ferryman-setup",
-      severity: "medium",
-      title: "The Ferryman acts on knowledge he was never given",
-      evidence:
-        "scene-alt-2a has the Ferryman name the Northern Flood Gate, but no " +
-        "earlier scene on this branch tells him where Kael is going.",
-      affectedSceneId: "scene-alt-2a",
-      explanation:
-        "A character knowledge gap. The Ferryman is introduced in Scene 2 and " +
-        "does not overhear the destination in any scene that precedes this one.",
-      suggestedFix:
-        "Add a half-panel in Scene 2 where Kael says the gate out loud, or have " +
-        "the Ferryman guess and be corrected.",
-    },
-  ],
+  findings: tunnel
+    ? reviewBranch(tunnel, DEMO_BRANCHES).map(toReviewFinding)
+    : [],
   strategies: [
     {
       id: "strategy-safe",
-      label: "Take the setup, leave the contradiction",
+      label: "Take the tunnel, leave the Archivist",
       description:
-        "Merge the Ferryman's expanded role but leave the tunnel ending on the " +
-        "branch until the compass problem is resolved.",
+        "Merge the aqueduct route but hold the engine-room scene back until " +
+        "the Archivist has been introduced on this timeline.",
       compatibleSceneIds: ["scene-alt-2a"],
       conflictingSceneIds: ["scene-alt-2b"],
       tradeoffs:
-        "Canon gains the stronger Ferryman setup and stays consistent. The " +
-        "alternate ending stays unmerged, so the branch remains open.",
+        "Canon gains the alternate route and stays internally consistent. The " +
+        "engine room stays unmerged, so the branch remains open.",
     },
     {
       id: "strategy-full",
-      label: "Take the whole branch and fix the compass",
+      label: "Take the whole branch and add an introduction",
       description:
-        "Merge both scenes and apply the suggested fix to the bearing in " +
-        "scene-alt-2b before it lands on canon.",
+        "Merge both scenes, and add a beat to the aqueduct scene that " +
+        "introduces the Archivist before the engine room.",
       compatibleSceneIds: ["scene-alt-2a", "scene-alt-2b"],
       conflictingSceneIds: [],
       tradeoffs:
-        "Canon gets the complete alternate route in one step, but the fix has " +
-        "to be written now rather than deferred, and it changes how the gate " +
-        "scene reads.",
+        "Canon gets the complete route in one step, but the introduction has " +
+        "to be written now rather than deferred, and it lengthens the branch.",
     },
     {
-      id: "strategy-none",
-      label: "Keep exploring",
+      id: "strategy-rebranch",
+      label: "Re-branch from Scene 4 instead",
       description:
-        "Merge nothing yet. Record the review against the branch and revisit " +
-        "once the knowledge gap is addressed.",
+        "Abandon this divergence point and branch again after the Archivist " +
+        "is established in canon, so the introduction is inherited.",
       compatibleSceneIds: [],
       conflictingSceneIds: ["scene-alt-2a", "scene-alt-2b"],
       tradeoffs:
-        "Canon is untouched and nothing is lost — the branch keeps its history. " +
-        "The cost is that the Ferryman setup stays unavailable to other branches.",
+        "Nothing is lost — the branch keeps its history — and the continuity " +
+        "problem disappears rather than being patched. The cost is that both " +
+        "scenes need rewriting against a later point in the story.",
     },
   ],
 };
