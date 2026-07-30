@@ -204,6 +204,7 @@ export async function fetchScenes(
 /** Insert a new scene row. */
 export async function insertScene(
   client: SupabaseClient,
+  branchId: string,
   scene: Omit<Scene, "contributor">,
   contributorName: string,
 ): Promise<Scene> {
@@ -212,7 +213,7 @@ export async function insertScene(
     .insert({
       id: scene.id,
       project_id: scene.projectId,
-      branch_id: scene.projectId,   // caller should pass the real branch_id via scene.id workaround
+      branch_id: branchId,
       scene_number: scene.sceneNumber,
       title: scene.title,
       location: scene.location,
