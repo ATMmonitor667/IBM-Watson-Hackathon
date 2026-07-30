@@ -1,0 +1,786 @@
+STORYVERSE — OPEN WORK, IN PRIORITY ORDER
+=========================================
+
+Written 29 July 2026. Checked against:
+  • the tree at HEAD (66f136d) — by reading the code and running
+    typecheck / tests / build, not by trusting the plan documents
+  • "Storyverse — Master Product Requirements Document" v1.0 (the PRD)
+
+45 items, ranked #1 to #45. Work top to bottom. The order already respects every
+dependency, so nothing above needs something below it.
+
+Issue IDs (A1, D3, B4 …) are kept from the epic-grouped version so any issue
+already filed still maps. The RANK is the new thing — it is what to do next.
+
+Format: every item pastes into a GitHub issue as-is.
+  #RANK · ID · TITLE · PRIORITY
+  PRD        the PRD section that requires it
+  WHY        why it matters
+  ACCEPT     acceptance criteria — how you know it is closed
+  FILES      where the work happens
+  SIZE       S (<1h) · M (half day) · L (full day)
+  DEPENDS    other issue IDs (always ranked above)
+
+PRIORITY KEY
+  P0  PRD §12 must-have, or the submission is invalid without it.
+  P1  Needed for a credible demo or a truthful submission.
+  P2  Real improvement, only if P0 and P1 are closed.
+
+
+================================================================================
+QUICK INDEX — THE WHOLE ORDER ON ONE SCREEN
+================================================================================
+
+  BLOCK 1 · FIRST HOUR — cheap, unblocking, or catastrophic if missed
+   #1  F7  Confirm IBM SkillsBuild for all four members          P0  S
+   #2  D1  Make one real watsonx call succeed (THE SPIKE)        P0  M
+   #3  A2  Restore .env.example                                  P0  S
+   #4  A1  Fix the red typecheck (barrel files)                  P0  S
+   #5  A3  Decide the fate of feature/rahat-platform             P0  S
+   #6  A4  Reconcile Supabase env var naming                     P1  S
+
+  BLOCK 2 · DAY 1 — the demo's spine
+   #7  B2  Fix insertScene writing the wrong branch_id           P0  S
+   #8  D3  Compute continuity findings, stop hardcoding them     P0  M
+   #9  B1  Load branches and scenes from Supabase                P0  M
+  #10  C1  Prove sign-in works end to end                        P0  M
+  #11  E1  Character Studio                                      P0  L
+  #12  D4  Wire the continuity route into a review surface       P0  M
+  #13  E3  Scene editing                                         P0  M
+  #14  B3  Persist branch creation                               P0  M
+  #15  B4  Persist the merge as a real transaction               P0  L
+  #16  B6  Selective merge — choose WHICH scenes merge           P0  M
+  #17  E2  Visual diff between a branch and canon                P0  L
+  #18  D7  Generate a panel using project context                P0  S
+  #19  D6  Wire character refinement into Character Studio       P0  M
+  #20  B5  Persist and read back activity events                 P0  M
+  #21  C3  Create the second collaborator account                P0  S
+  #22  D2  Fix the model ID mismatch                             P0  S
+
+  BLOCK 3 · DAY 2 MORNING — credibility, only if Block 2 is done
+  #23  D9  Label AI output and its source everywhere             P1  S
+  #24  A5  Make the mock fallback loud instead of silent         P1  S
+  #25  D5  Wire the merge assistant into the merge flow          P1  M
+  #26  D8  Fallback drill — prove AI_MOCK is indistinguishable   P1  S
+  #27  E8  Creative vocabulary audit                             P1  S
+  #28  D10 Canon memory distinguishes fact tiers                 P1  S
+  #29  B7  Verify the schema matches the code                    P1  M
+  #30  C4  Verify RLS against both accounts                      P1  M
+  #31  C2  Protect the workspace routes                          P1  M
+  #32  B8  Staged seed script                                    P1  M
+  #33  E4  States pass — loading, empty, error, focus, motion    P1  M
+  #34  B9  Scene versions, not scene overwrites                  P1  M
+  #35  E5  Original artwork for the demo                         P1  L
+
+  BLOCK 4 · DAY 2 AFTERNOON — RESERVED. NON-NEGOTIABLE. NO FEATURES.
+  #36  F5  Secret scan over git HISTORY                          P0  S
+  #37  F1  Rewrite the README                                    P0  M
+  #38  F2  Document watsonx usage per feature                    P0  S
+  #39  F8  Write the limitations section honestly                P1  S
+  #40  F3  "Built with IBM Bob" write-up                         P0  M
+  #41  F6  Deploy and verify both links in a private window      P0  S
+  #42  F4  Record the demo video (≤ 3:00)                        P0  L
+
+  BLOCK 5 · ONLY IF EVERYTHING ABOVE IS DONE
+  #43  E6  Fix the <img> lint warning in SceneCard               P2  S
+  #44  A6  CI running lint + typecheck + test + build            P2  S
+  #45  E7  Story World Knowledge Graph                           P2  L
+
+
+================================================================================
+HOW TO READ THIS ORDER
+================================================================================
+
+Deadline: 31 July 2026, 11:59 PM ET. Roughly TWO working days.
+
+You cannot do 45 items in two days. The PRD is a product vision, not a two-day
+plan. Three rules govern the ranking:
+
+1. CHEAP AND CATASTROPHIC GOES FIRST. #1 (SkillsBuild) is a fifteen-minute check
+   that can invalidate the entire entry. #2 (watsonx) may need a credential
+   escalation with hours of waiting, so it starts before anything depends on it.
+
+2. BLOCK 4 IS NOT LOWER PRIORITY — IT IS LATER IN TIME. Those items are P0. An
+   unsubmitted project scores zero regardless of the code. Reserve Day 2
+   afternoon for them and do not spend it on features.
+
+3. WHEN YOU RUN OUT OF TIME, STOP AT A RANK — do not half-do three items in
+   parallel. Cut everything below where you stopped, and say so in the README
+   (#39). PRD §20 names scope creep as risk #1.
+
+Where to stop if you fall behind:
+  Stop at #22 → you have the full PRD demo path, thin but real.
+  Stop at #17 → you lose panel context and character refinement; still filmable.
+  Stop at #12 → you have the continuity moment, which is the single most
+                important 15 seconds in the video. Below that, the demo has no
+                climax.
+
+
+================================================================================
+PRD §12 MVP SCOPE — GAP ANALYSIS
+================================================================================
+
+PRD §12 lists 14 must-have features. Current status:
+
+  #   MUST-HAVE (PRD §12)                        STATUS          RANK
+  --  -----------------------------------------  --------------  --------
+   1  Authentication                             UNPROVEN        #10
+   2  Create a story project                     PARTIAL         #9
+   3  Create or upload one character             MISSING         #11
+   4  AI-assisted character refinement           API ONLY        #19
+   5  Lock character reference                   MISSING         #11
+   6  Create a sequence of visual scenes         NOT PERSISTED   #7, #13
+   7  Generate a panel using project context     API ONLY        #18
+   8  Create a branch from a scene               NOT PERSISTED   #14
+   9  Show branch tree                           DONE            —
+  10  Collaborator modifies the branch           MISSING         #13, #21
+  11  Compare branch changes                     MISSING         #17
+  12  Run AI continuity review                   MOCKED ONLY     #2, #8, #12
+  13  Merge selected changes into canon          NOT PERSISTED   #15, #16
+  14  Update the graph and activity history      IN-MEMORY ONLY  #20
+
+  Strong optional: small knowledge graph                MISSING  #45
+
+  Scored honestly: 1 of 14 complete.
+
+"API ONLY" means the endpoint, prompt, schema, and tests exist but nothing in
+the UI calls it. "MOCKED ONLY" means it returns hardcoded data and has never
+reached watsonx. Both look finished on a file listing and are not.
+
+
+================================================================================
+DEMO-FLOW READINESS (PRD §14)
+================================================================================
+
+  TIME         SEGMENT                       CAN FILM?  BLOCKED ON
+  -----------  ----------------------------  ---------  ---------------------
+  0:00–0:20    State the problem             YES        —
+  0:20–0:40    Show the project              YES        —
+  0:40–1:05    Character Studio              NO         #11  (25s of dead air)
+  1:05–1:30    Generate a scene w/ context   NO         #18
+  1:30–1:55    Branch and collaborate        PARTIAL    #13, #14
+  1:55–2:20    AI review catches a problem   FAKE       #2, #8, #12
+  2:20–2:40    Compare and merge             NO         #15, #16, #17
+  2:40–2:55    Wow moment (Three.js)         NO         CUT-1 — use the 2D tree
+  2:55–3:00    Closing line                  YES        —
+
+Only 45 seconds of a 180-second demo is currently filmable. The 1:55–2:20
+segment is the most important moment in the video (PRD §22: "AI catches at least
+one meaningful story inconsistency") and it currently reads a hardcoded string
+out of a fixture.
+
+
+================================================================================
+CURRENT STATE — WHAT IS ACTUALLY TRUE
+================================================================================
+
+WORKING
+- Next.js 16 / React 19 / TS / Tailwind v4 build is green. `npm run build` passes.
+- 103 tests pass across 9 files (AI schemas, prompts, provider, context builder,
+  panel request, and the three AI route handlers).
+- Workspace UI renders: project header, scene canvas, branch tree (React Flow),
+  scene-detail / create-branch / create-scene / merge-preview panels, activity
+  footer, loading skeletons, error states.
+- Three AI route handlers with Zod-validated input AND output, typed error
+  classes, and deterministic mocks behind AI_MOCK.
+- Supabase migration: projects, branches, scenes, activity_events,
+  project_members, with 21 RLS statements.
+- docs/ai-architecture.md is genuinely good and mostly accurate.
+- character/review types and stores appeared during this session
+  (src/types/{character,review}.ts, src/store/{character,review}Store.ts) —
+  somebody has started #11/#12. Coordinate before duplicating that work.
+
+NOT WORKING / NOT TRUE
+- typecheck is RED (#4).
+- .env.example is EMPTY — a fresh clone cannot be configured (#3).
+- NO REAL WATSONX CALL HAS EVER SUCCEEDED (#2). Everything you have seen is a
+  mock. This is the most important item in this file.
+- The workspace does not read scenes or branches from Supabase. They are React
+  state seeded from src/lib/mock/*, and only for project id "demo-1".
+- Nothing persists. Create a branch, create a scene, merge — reload and it is
+  gone.
+- Continuity flags are hardcoded strings in the mock data. Nothing computes them.
+- README describes a repository that no longer exists.
+
+
+################################################################################
+#                                                                              #
+#  BLOCK 1 · FIRST HOUR                                                        #
+#                                                                              #
+################################################################################
+
+#1 · F7 · Confirm every member's IBM SkillsBuild activity · P0
+WHY     A stated eligibility requirement. It has nothing to do with code and it
+        can invalidate the entire entry. Fifteen minutes now, or a worthless
+        submission in two days. This is ranked first purely on expected cost.
+ACCEPT  All four members confirmed, evidence saved somewhere the team can find it.
+SIZE    S
+
+#2 · D1 · Make one real watsonx call succeed (THE SPIKE) · P0
+PRD     §17, and the entire premise of entering a watsonx challenge
+WHY     THE BIGGEST RISK IN THE PROJECT AND IT IS STILL OPEN. Every AI response
+        in the app comes from src/lib/ai/mocks.ts. There is a concrete bug
+        blocking it:
+
+          provider.ts sends   Authorization: Bearer ${WATSONX_API_KEY}
+
+        watsonx.ai does not accept a raw API key. You must first exchange it for
+        a short-lived IAM access token:
+
+          POST https://iam.cloud.ibm.com/identity/token
+          Content-Type: application/x-www-form-urlencoded
+          grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=<KEY>
+
+        then send THAT as the bearer. As written every real call returns 401 —
+        which is caught and silently replaced by a mock, which is precisely why
+        nobody has noticed.
+
+        Ranked this high partly because it may not be code-bound at all: if the
+        account is not provisioned, the escalation takes hours you do not have
+        later.
+ACCEPT  A real generated_text returns from watsonx in a test or script, p50
+        latency posted in the team chat, token cached and refreshed before expiry
+        (~1h lifetime).
+FILES   src/lib/ai/provider.ts
+SIZE    M
+BLOCKER Requires provisioned IBM Cloud credentials. IF THE ACCOUNT IS NOT
+        PROVISIONED, ESCALATE IN THE FIRST HOUR — not tomorrow night.
+
+#3 · A2 · Restore .env.example · P0
+PRD     §12 (setup from a clean clone is a submission requirement)
+WHY     The file is one comment and two blank lines. Every variable is gone. A
+        judge cloning the repo cannot run it. Also blocks #6 and #37.
+ACCEPT  Documents every variable the code reads, one comment each, verified by
+        grepping process.env across src/. A clean clone + copy + `npm run dev`
+        works in mock mode with no real credentials.
+FILES   .env.example
+SIZE    S
+DETAIL  NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (see #6),
+        WATSONX_API_KEY, WATSONX_PROJECT_ID, WATSONX_URL,
+        AI_MOCK (true by default), AI_REQUEST_TIMEOUT_MS (optional, 15000)
+
+#4 · A1 · Fix the red typecheck: delete auto-generated barrel index.ts files · P0
+WHY     `npm run typecheck` fails with 12 errors, every one from auto-generated
+        `index.ts` re-export barrels rather than real code. A red typecheck means
+        nobody trusts the signal, so real breakage hides in it for the next two
+        days.
+ACCEPT  `npm run typecheck` exits 0. No barrel `index.ts` files remain. The IDE
+        extension generating them is disabled, and that is noted in the README so
+        it does not come back a fourth time.
+FILES   src/components/index.ts, src/store/index.ts, src/types/index.ts,
+        src/app/index.ts, src/lib/index.ts, src/app/(workspace)/**/index.ts
+SIZE    S
+NOTE    Third recurrence. Deleting without disabling the generator just resets
+        the clock.
+
+#5 · A3 · Decide the fate of the feature/rahat-platform work · P0
+WHY     Two parallel implementations were built; only one is in the tree. The
+        other (commit 66f6d57) has a WORKING deterministic continuity rule engine
+        with 9 passing tests — the exact thing #8 needs and PRD §21 Priority 3
+        demands. Decide before #8 starts, or #8 gets written twice.
+ACCEPT  A written decision in DECISIONS.txt: named pieces cherry-picked with
+        issues filed, or the branch formally abandoned and deleted.
+SIZE    S to decide, L if salvaging
+NOTE    The rule engine is the piece most worth salvaging.
+
+#6 · A4 · Reconcile Supabase env var naming · P1
+WHY     Code reads NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; the Supabase dashboard
+        calls it the anon key. Paste it under the wrong name and the app silently
+        serves mock data instead of erroring — the worst failure mode mid-demo.
+        Blocks #9.
+ACCEPT  One name in code, .env.example, and README, with a comment naming the
+        dashboard field it maps to.
+FILES   src/lib/supabase/{client,server}.ts, src/store/projectStore.ts
+SIZE    S
+DEPENDS A2 (#3)
+
+
+################################################################################
+#                                                                              #
+#  BLOCK 2 · DAY 1 — THE DEMO'S SPINE                                          #
+#                                                                              #
+################################################################################
+
+#7 · B2 · Fix insertScene writing the wrong branch_id · P0
+WHY     src/lib/supabase/db.ts (~line 215) writes `branch_id: scene.projectId`
+        with a comment admitting it is a workaround. Every inserted scene lands
+        on a branch id that is actually a project id — the FK will reject it or
+        orphan the row. Ranked before the persistence work so that work is not
+        built on top of corrupt writes.
+ACCEPT  insertScene takes an explicit branchId and writes it. A test inserts a
+        scene and reads it back on the correct branch.
+FILES   src/lib/supabase/db.ts
+SIZE    S
+
+#8 · D3 · Compute continuity findings instead of hardcoding them · P0
+PRD     §9.2, §21 Priority 3, §22 ("AI catches at least one meaningful
+        inconsistency"), §20 ("require evidence from scene data or canon facts")
+WHY     `continuityFlag` is a literal string in src/lib/mock/demoScenes.ts. The
+        headline claim is that AI catches a contradiction; right now the
+        contradiction is typed into a fixture and displayed. A judge who opens
+        one file sees that immediately. This is the climax of the demo video.
+ACCEPT  A deterministic rule engine walks a branch's scenes in order, tracks prop
+        possession, and PRODUCES the compass contradiction rather than reading
+        it. Fires on the branch, silent on canon — both tested. The model then
+        explains the finding (#12); it does not find it.
+FILES   src/lib/ai/rules.ts (new), src/lib/ai/contextBuilder.ts
+SIZE    M
+DEPENDS A3 (#5) — decides whether to salvage or rewrite
+
+#9 · B1 · Load branches and scenes from Supabase · P0
+PRD     §12 must-have #2
+WHY     ProjectPageClient seeds from DEMO_BRANCHES/DEMO_SCENES, and only when
+        id === "demo-1". Every other project is permanently empty. The Supabase
+        helpers to fix this already exist and are never called. Unblocks five
+        items below it.
+ACCEPT  Opening a project loads its branches and scenes from Postgres when
+        credentials are present, and falls back to mock loudly (#24) when not.
+FILES   src/components/workspace/ProjectPageClient.tsx, src/lib/supabase/db.ts
+SIZE    M
+DEPENDS A4 (#6)
+
+#10 · C1 · Prove sign-in works end to end · P0
+PRD     §12 must-have #1
+WHY     A sign-in page and form exist. There is no evidence anyone has completed
+        a real sign-in, and projectStore silently falls back to mock when there
+        is no session — so broken auth looks like a working app. Blocks #21.
+ACCEPT  A real account signs in, the session survives reload, and the workspace
+        shows that user's own projects.
+FILES   src/app/sign-in/page.tsx, src/components/auth/SignInForm.tsx,
+        src/lib/supabase/{client,server}.ts
+SIZE    M
+
+#11 · E1 · Character Studio · P0
+PRD     §8.7, §12 must-haves #3 and #5, §21 Priority 2, §14 (0:40–1:05)
+WHY     "One of the strongest product features" per the PRD, the second-highest
+        team priority, and 25 seconds of a 180-second video. It does not exist:
+        no character table, no UI. Ranked here because it is L-sized and blocks
+        #19 — start it early on Day 1 or it will not land.
+ACCEPT  A character can be created from an uploaded sketch or description with
+        traits, palette, and clothing rules; versions compared side by side; and
+        one version explicitly LOCKED. The locked reference is visible in the
+        workspace and is what #18's panel request cites.
+FILES   src/components/character/*, src/types/character.ts,
+        src/store/characterStore.ts, new migration for characters +
+        character_versions
+SIZE    L
+NOTE    Needs a schema change. src/types/character.ts and characterStore.ts
+        appeared during this session — check with the team before duplicating.
+        If time runs short, seed a pre-locked character and make the studio
+        read-only rather than cutting the concept — the LOCK is what the demo
+        needs, not the authoring flow.
+
+#12 · D4 · Wire the continuity route into a review surface · P0
+PRD     §8.5 (Canon Review), §9.2
+WHY     BranchPanels.tsx POSTs to /api/ai/continuity, but no surface shows
+        findings with evidence, severity, the broken canon fact, and the fix. An
+        endpoint returning good JSON is not a reviewer being able to act on it.
+        Together with #8 this is the demo's climax — if you stop anywhere, stop
+        after this.
+ACCEPT  A reviewer opens a branch, runs a canon review, and sees each finding
+        with evidence, the fact it breaks, and a suggested fix — each labelled an
+        AI proposal that has not been applied.
+FILES   src/components/workspace/BranchPanels.tsx, src/store/reviewStore.ts,
+        new review components
+SIZE    M
+DEPENDS D3 (#8)
+
+#13 · E3 · Scene editing · P0
+PRD     §12 must-have #10, §14 (1:30–1:55)
+WHY     Scenes can be created but not edited. The demo's inciting action is a
+        collaborator CHANGING a scene on a branch. That is currently impossible
+        in the app; it exists only as pre-baked mock data.
+ACCEPT  A scene can be edited on a branch; the edit creates a new revision rather
+        than overwriting; canon is untouched.
+FILES   src/components/workspace/CreateSceneForm.tsx (extend), db.ts
+SIZE    M
+DEPENDS B1 (#9)
+
+#14 · B3 · Persist branch creation · P0
+PRD     §12 must-have #8
+WHY     handleBranchCreated only calls setBranches. insertBranch exists and is
+        never called. Reload and the branch is gone — mid-demo, that is the
+        moment the illusion breaks.
+ACCEPT  Creating a branch writes a row and survives a reload.
+FILES   src/components/workspace/ProjectPageClient.tsx, src/lib/supabase/db.ts
+SIZE    M
+DEPENDS B1 (#9)
+
+#15 · B4 · Persist the merge as a real transaction · P0
+PRD     §12 must-have #13, §18 ("merges record source, destination, selected
+        changes, reviewers, and explanation")
+WHY     handleMergeBranch mutates local state and shows a toast. Nothing is
+        written. Human-approved merge into canon is the product's central claim
+        and is currently an animation.
+ACCEPT  Merging writes selected scene versions to canon, flips branch state,
+        writes an activity row, and survives reload. Merging 2 of 3 updates
+        exactly those two. A `merges` row records reviewer and explanation.
+FILES   src/lib/supabase/db.ts, src/components/workspace/ProjectPageClient.tsx
+SIZE    L
+DEPENDS B1 (#9), B3 (#14)
+
+#16 · B6 · Selective merge: choose WHICH scenes merge · P0
+PRD     §8.5 ("merge selected scenes rather than requiring an all-or-nothing
+        merge"), §12 must-have #13
+WHY     Merge is all-or-nothing per branch. Selective merge with human choice is
+        the differentiator the PRD names explicitly.
+ACCEPT  A checkbox per changed scene; only checked scenes merge; the confirmation
+        shows exactly what will change in canon before it happens.
+FILES   src/components/workspace/BranchPanels.tsx (MergePreviewPanel)
+SIZE    M
+DEPENDS B4 (#15)
+
+#17 · E2 · Visual diff between a branch and canon · P0
+PRD     §8.6, §12 must-have #11, §21 Priority 4, §14 (2:20–2:40)
+WHY     How a reviewer decides what to merge. Without it, #16's selective merge
+        is a checkbox with no information behind it.
+ACCEPT  Side-by-side scene comparison with per-scene status (unchanged, changed,
+        added) and changed FIELDS highlighted — dialogue, props, action, beat.
+FILES   src/components/workspace/* (new DiffView)
+SIZE    L
+DEPENDS B1 (#9)
+
+#18 · D7 · Generate a panel using project context · P0
+PRD     §12 must-have #7, §8.5 (Generate panels with canon context)
+WHY     panelRequest.ts + getPanelFallback() exist so the demo can show the exact
+        payload that WOULD go to an image model, over prepared art, with no
+        external call. Honest and defensible — but only if it is on screen.
+        Otherwise it is a missing must-have. Cheapest P0 remaining.
+ACCEPT  The UI shows the prepared panel AND the full assembled request (locked
+        character description, canon facts, style instruction). The README states
+        plainly that images are not generated live, and why (#39).
+FILES   src/components/workspace/BranchPanels.tsx, src/lib/ai/panelRequest.ts
+SIZE    S
+
+#19 · D6 · Wire character refinement into Character Studio · P0
+PRD     §12 must-have #4, §8.7
+WHY     /api/ai/character-refine exists and is tested. There is no character UI
+        to call it from.
+ACCEPT  A character can be refined by prompt, the proposal shown, and explicitly
+        approved or rejected. Nothing is written without approval.
+FILES   src/components/character/*
+SIZE    M
+DEPENDS E1 (#11)
+
+#20 · B5 · Persist and read back activity events · P0
+PRD     §12 must-have #14
+WHY     insertActivity() exists and is never called. The activity store is
+        in-memory and the footer shows only the most recent entry. This is the
+        audit record for "a human approved this".
+ACCEPT  Every mutation writes an activity row in the same operation; the feed
+        reads from the database and shows more than one entry.
+FILES   src/store/activityStore.ts, src/lib/supabase/db.ts
+SIZE    M
+DEPENDS B1 (#9)
+
+#21 · C3 · Create the second collaborator account · P0
+PRD     §12 must-have #10, §14 (1:30–1:55 "show a collaborator changing the
+        branch")
+WHY     The demo needs a real collaborator making the branch edit, in a second
+        browser profile. Faking it is less convincing and risks putting a service
+        key near the browser.
+ACCEPT  Two real seeded accounts; each sees only their own projects; the demo's
+        branch edit is authored by the second one.
+SIZE    S
+DEPENDS C1 (#10)
+
+#22 · D2 · Fix the model ID mismatch · P0
+WHY     docs/ai-architecture.md says production uses `ibm/granite-3-3-8b-instruct`.
+        provider.ts defaults to `ibm/granite-13b-instruct-v2`, a retired model.
+        The doc flags this and asks someone to fix it; nobody did. The submission
+        must name the model and be right (#38).
+ACCEPT  DEFAULT_MODEL_ID matches the doc and README, and #2 succeeds against it.
+FILES   src/lib/ai/provider.ts, docs/ai-architecture.md
+SIZE    S
+DEPENDS D1 (#2)
+
+
+################################################################################
+#                                                                              #
+#  BLOCK 3 · DAY 2 MORNING — CREDIBILITY                                       #
+#                                                                              #
+################################################################################
+
+#23 · D9 · Label AI output and its source everywhere · P1
+PRD     §15.5, §19 ("AI suggestions remain reviewable")
+WHY     Visible "AI proposes, human disposes" labelling is a judged criterion.
+        responsibleAI.ts holds the text; it must actually render on every AI
+        surface, and each finding should say whether it came from the rule
+        engine, the model, or both. Highest value per minute in this block.
+ACCEPT  Every AI-authored surface shows the disclaimer and a source indicator.
+FILES   src/components/ai/AiDisclaimer.tsx, src/lib/ai/responsibleAI.ts
+SIZE    S
+
+#24 · A5 · Make the mock fallback loud instead of silent · P1
+WHY     projectStore.loadProjects() catches every Supabase error and degrades to
+        MOCK_PROJECTS. Sensible for a demo, dangerous while building: a broken
+        RLS policy looks identical to a working app. You could film mock data
+        believing it came from Postgres.
+ACCEPT  When serving mock data, that is visible in the UI and logged once with
+        the reason.
+FILES   src/store/projectStore.ts, src/components/workspace/ProjectHeader.tsx
+SIZE    S
+
+#25 · D5 · Wire the merge assistant into the merge flow · P1
+PRD     §9.3
+WHY     The route, prompt, schema, client helper, and tests all exist. Nothing
+        calls it. It is dead code in the submission unless it is reachable.
+ACCEPT  Merge preview shows branch summary, compatible changes, true conflicts,
+        and 2-3 strategies with trade-offs. previewOnly stays true; the human
+        picks.
+FILES   src/components/workspace/BranchPanels.tsx (MergePreviewPanel),
+        src/lib/ai/mergeAssistantClient.ts
+SIZE    M
+
+#26 · D8 · Fallback drill: prove AI_MOCK=true is indistinguishable · P1
+WHY     Insurance for the recording. If watsonx is slow or down mid-take, one env
+        var must make the whole app work. Must happen before #42.
+ACCEPT  With AI_MOCK=true the entire demo path runs with no network calls and no
+        visible errors. Drilled end to end BEFORE recording.
+SIZE    S
+DEPENDS D1 (#2), D4 (#12), D5 (#25)
+
+#27 · E8 · Creative vocabulary audit · P1
+PRD     §6.3 and §20 ("risk: the interface feels like a GitHub clone")
+WHY     A named risk in the PRD with a named mitigation. Cheap, and it changes
+        how the whole product reads to a judge.
+ACCEPT  No "commit", "pull request", or "merge conflict" in user-facing copy.
+        Use Canon, Timeline, Story Proposal, Canon Review, what-if branch.
+FILES   src/components/workspace/*, src/components/ai/*
+SIZE    S
+
+#28 · D10 · Canon memory distinguishes fact tiers · P1
+PRD     §9.5 — must distinguish canon facts, branch facts, drafts, rejected,
+        unknown
+WHY     contextBuilder already separates canonFacts from branchFacts. That
+        separation is what makes a contradiction detectable at all — a branch
+        fact is not canon. It must survive all the way into the prompt text.
+ACCEPT  The rendered prompt labels the two groups distinctly. A test asserts a
+        branch-only fact never appears under the canon heading.
+FILES   src/lib/ai/contextBuilder.ts, src/lib/ai/prompts/continuityPrompt.ts
+SIZE    S
+
+#29 · B7 · Verify the schema matches the code · P1
+WHY     db.ts maps a `scenes.order` column. `order` is a SQL reserved word and
+        needs quoting; if the migration named it differently every scene query
+        fails at runtime, not compile time. Nobody has run these queries against
+        a real database.
+ACCEPT  Migration applied to a fresh project; every function in db.ts exercised
+        against it at least once.
+FILES   supabase/migrations/20260722_initial_schema.sql, src/lib/supabase/db.ts
+SIZE    M
+
+#30 · C4 · Verify RLS against both accounts · P1
+WHY     21 RLS statements exist and have never been tested with two real users.
+        RLS lockout debugging can eat half a day — find it now, not at midnight.
+ACCEPT  Anonymous SELECT returns nothing; each member sees only their projects; a
+        non-member cannot read or write another project.
+FILES   supabase/migrations/20260722_initial_schema.sql
+SIZE    M
+DEPENDS C3 (#21)
+
+#31 · C2 · Protect the workspace routes · P1
+WHY     /projects/[id] is reachable signed-out and silently shows mock data.
+ACCEPT  Signed-out users are redirected to /sign-in; middleware refreshes the
+        session.
+FILES   src/middleware.ts (new), src/app/(workspace)/layout.tsx
+SIZE    M
+DEPENDS C1 (#10)
+
+#32 · B8 · Staged seed script · P1
+WHY     If a take breaks halfway through recording, you need to jump to the next
+        state in ten seconds rather than restart the run.
+ACCEPT  `npm run seed -- --stage=<base|branched|reviewed|merged>` restores that
+        state in under 10 seconds from any starting state.
+FILES   supabase/seed.sql, package.json
+SIZE    M
+DEPENDS B7 (#29)
+
+#33 · E4 · States pass: loading, empty, error, focus, reduced motion · P1
+PRD     §11 ("users need a reduced-motion option")
+WHY     LoadingSkeletons.tsx and StateViews.tsx exist and are partly used. A
+        consistent pass makes the demo feel finished.
+ACCEPT  Every async surface has loading and error states; keyboard focus order is
+        sane; verified with the OS reduced-motion setting actually on.
+FILES   src/components/workspace/*
+SIZE    M
+
+#34 · B9 · Scene versions, not scene overwrites · P1
+PRD     §18 ("a scene can have many versions"), §19 ("every change has history")
+WHY     The schema has scenes.revision but no scene_versions table. "Every scene
+        has history" (PRD §3) cannot be shown if an edit overwrites the row.
+ACCEPT  Editing a scene creates a new version; the previous version is still
+        readable; revision history is visible in the scene detail panel.
+FILES   new migration, src/lib/supabase/db.ts
+SIZE    M
+DEPENDS E3 (#13)
+
+#35 · E5 · Original artwork for the demo · P1
+PRD     §20 ("use original project assets"), §22 ("the same character remains
+        recognizable across generated panels")
+WHY     Only one demo asset exists (panel-kael-scene5-fallback.png). Original
+        artwork only — no imitation of named living artists.
+ACCEPT  Panels for the demo scenes on both branches, plus a character reference
+        sheet, all original.
+SIZE    L
+NOTE    Ranked last in this block deliberately: do not perfect artwork before the
+        flow works. Placeholders film acceptably; a broken flow does not.
+
+
+################################################################################
+#                                                                              #
+#  BLOCK 4 · DAY 2 AFTERNOON — RESERVED. NON-NEGOTIABLE. NO FEATURES.          #
+#                                                                              #
+################################################################################
+
+These are P0. They are ranked here because they must happen LAST, not because
+they matter least. An unsubmitted project scores zero regardless of the code.
+Whatever state the features are in at midday on Jul 31, stop and start here.
+
+#36 · F5 · Secret scan over git HISTORY · P0
+WHY     Not just the working tree — a key committed and later removed is still in
+        history and still disqualifying. Ranked first in this block because if it
+        finds something, the fix is slow.
+ACCEPT  `git log -p` scanned for keys; .gitignore covers .env*; no credential in
+        any commit.
+SIZE    S
+
+#37 · F1 · Rewrite the README · P0
+WHY     It says "The repository contains the initial Next.js application
+        foundation" and lists a structure that does not exist. First thing a
+        judge reads.
+ACCEPT  Problem, solution, the theme named explicitly, architecture diagram,
+        setup from a clean clone, seed command, sample data, limitations, and
+        responsible-AI controls. Every command in it actually run and verified.
+SIZE    M
+DEPENDS A2 (#3)
+
+#38 · F2 · Document watsonx usage per feature · P0
+WHY     Explicitly graded: which model, what data is sent, and exactly where a
+        human must approve.
+ACCEPT  docs/ai-architecture.md accurate after #2 and #22 (model ID, auth flow),
+        and the README links and summarises it.
+FILES   docs/ai-architecture.md, README.md
+SIZE    S
+DEPENDS D1 (#2), D2 (#22)
+
+#39 · F8 · Write the limitations section honestly · P1
+PRD     §20
+WHY     The PRD's own risk register is the best source for this. "Images are
+        prepared, not generated live, because image generation is slow and
+        unreliable under demo conditions" reads as engineering judgement. Hiding
+        it reads as a gap. Also where you record whatever you cut.
+ACCEPT  README names what is mocked, what is seeded, and what is not built.
+SIZE    S
+
+#40 · F3 · "Built with IBM Bob" write-up · P0
+PRD     §16
+WHY     A required submission section. Each member contributes concrete evidence:
+        what Bob generated, what the human decided, how output was validated.
+ACCEPT  Per-person prompt/session evidence covering architecture, components, API
+        design, schema, tests, debugging, and docs — not a generic paragraph.
+SIZE    M
+
+#41 · F6 · Deploy and verify both links in a private window · P0
+WHY     Links that work while you are logged in and 404 for a judge is a classic
+        way to lose everything. Must be done BEFORE the final recording so the
+        video shows the deployed URL.
+ACCEPT  Repo public and video public, both opened successfully in a private
+        browser window by someone not signed in.
+SIZE    S
+
+#42 · F4 · Record the demo video (≤ 3:00) · P0
+PRD     §14, §22
+WHY     Hard requirement. The most important 15 seconds are the contradiction
+        being caught with evidence.
+ACCEPT  Under 3:00, public, full journey on the deployed URL with no manual
+        database edits mid-take.
+SIZE    L
+DEPENDS D8 (#26), F6 (#41), and whichever features survived
+
+SUBMIT EARLY. Hours before 11:59 PM ET, not minutes.
+
+
+################################################################################
+#                                                                              #
+#  BLOCK 5 · ONLY IF EVERYTHING ABOVE IS DONE                                  #
+#                                                                              #
+################################################################################
+
+#43 · E6 · Fix the <img> lint warning in SceneCard · P2
+WHY     The only lint warning in the repo. Either use next/image or document why
+        a plain img is correct here.
+FILES   src/components/workspace/SceneCard.tsx
+SIZE    S
+
+#44 · A6 · CI running lint + typecheck + test + build · P2
+WHY     #4 happened because nothing enforces green.
+ACCEPT  A GitHub Action runs all four on every push and PR.
+SIZE    S
+DEPENDS A1 (#4)
+
+#45 · E7 · Story World Knowledge Graph · P2
+PRD     §8.9, §6.4, §12 "strong optional feature"
+WHY     The PRD calls for TWO graphs with different purposes — the branch tree
+        explains how the story changed, the knowledge graph explains how the
+        world connects. Only the branch tree exists. Marked optional in §12, so
+        it is last with two days left.
+ACCEPT  A read-only network of characters, locations, props, and scene
+        appearances. Clicking a character shows connected entities.
+SIZE    L
+
+
+================================================================================
+CUT — NOT DOING, AND THAT IS FINE
+================================================================================
+
+Listed so nobody restarts the argument.
+
+CUT-1  Three.js branch overview (PRD §11, §14's 2:40–2:55 "wow moment").
+       Dependencies installed and unused. PRD §11 itself requires the graph to
+       work with 3D disabled, so the 2D React Flow tree satisfies the
+       requirement. Film the wow moment on the 2D tree.
+
+CUT-2  Forking (PRD §8.4).
+       Not in the §12 must-have list. Attribution, licensing, and permission
+       indicators are a product concept, not a two-day feature.
+
+CUT-3  Live image generation.
+       Deliberate. #18 shows the assembled request over prepared art, and the
+       README says so plainly (#39). PRD §12 asks to "generate at least one panel
+       using project context" — #18 satisfies the context part honestly.
+
+CUT-4  AI Creative Director, Reader Simulator, Dialogue Coach, Style Harmonizer,
+       Story Summarizer, Project Historian, Asset Reuse, Story Health Dashboard
+       (PRD §9.1, §9.6–§9.12).
+       Eight AI features, none in §12. PRD §12 explicitly says do not prioritize
+       "dozens of AI agents".
+
+CUT-5  Real-time collaboration: live cursors, presence, comments (PRD §8.11).
+       The PRD already says full Google-Docs-level editing is unnecessary and
+       branch-based collaboration is enough.
+
+CUT-6  Light theme, mobile app, voice/audio modalities (PRD §10 "optional"),
+       pgvector semantic retrieval, Playwright, Storybook, Sentry, PostHog.
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+  Block 1  first hour        6 items    unblocking or catastrophic if missed
+  Block 2  Day 1            16 items    the demo's spine
+  Block 3  Day 2 morning    13 items    credibility
+  Block 4  Day 2 afternoon   7 items    submission — reserved, non-negotiable
+  Block 5  if time remains   3 items
+
+  P0 26 · P1 14 · P2 5 · 6 cut groups
+
+PRD §12 scorecard: 1 of 14 must-haves complete.
+
+If you do nothing else, do #1, #2, #8, #12, and Block 4:
+  #1   fifteen minutes that can save the entry
+  #2   without a real watsonx call this is a mock, not a watsonx project
+  #8   the headline claim has to be computed, not typed into a fixture
+  #12  a finding nobody can see is not a feature
+  B4   an unsubmitted project scores zero regardless of the code

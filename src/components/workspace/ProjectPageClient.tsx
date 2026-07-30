@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { RefreshCw } from "lucide-react";
 
@@ -16,6 +16,10 @@ import { useSceneStore } from "@/store/sceneStore";
 import { useActivityStore } from "@/store/activityStore";
 import { DEMO_SCENES } from "@/lib/mock/demoScenes";
 import { DEMO_BRANCHES } from "@/lib/mock/demoBranches";
+import {
+  continuityFlagsFor,
+  withComputedFlags,
+} from "@/lib/ai/continuityRules";
 import type { Branch, Scene, SceneReviewStatus } from "@/types/workspace";
 
 interface ProjectPageClientProps {
@@ -126,6 +130,37 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
     [branches, clearSelection, addActivity],
   );
 
+  /**
+   * Continuity findings are COMPUTED from the scene data on every change, not
+   * read from a stored string (issue #8 / D3). Edit a scene's cast or dialogue
+   * and the warning on its card appears or disappears accordingly — which is
+   * the difference between a continuity checker and a screenshot of one.
+   *
+   * The scene card and the branch-tree node already render `continuityFlag`, so
+   * feeding them computed values needed no change to either component.
+   */
+  const computedFlags = useMemo(() => {
+    const flags: Record<string, string> = {};
+    for (const branch of branches) {
+      Object.assign(flags, continuityFlagsFor(branch, branches));
+    }
+    return flags;
+  }, [branches]);
+
+  const scenesWithFindings = useMemo(
+    () => withComputedFlags(scenes, computedFlags),
+    [scenes, computedFlags],
+  );
+
+  const branchesWithFindings = useMemo(
+    () =>
+      branches.map((branch) => ({
+        ...branch,
+        scenes: withComputedFlags(branch.scenes, computedFlags),
+      })),
+    [branches, computedFlags],
+  );
+
   useEffect(() => {
     loadProjects();
   }, [loadProjects, retryKey]);
@@ -176,7 +211,7 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
             aria-label="Scene canvas"
           >
             <SceneCanvas
-              scenes={scenes}
+              scenes={scenesWithFindings}
               isLoading={isRefreshing}
               projectTitle={project.title}
               onAddScene={() => useUiStore.getState().openPanel("create-scene")}
@@ -209,25 +244,25 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
               )}
             </div>
             <div className="flex-1 overflow-hidden" style={{ height: "100%" }}>
-              <BranchTree branches={branches} />
+              <BranchTree branches={branchesWithFindings} />
             </div>
 
             {/* Detail / create-branch / merge-preview panels — slide in over the branch tree */}
             {openPanelId === "scene-detail" && (
               <SceneDetailPanel
-                scenes={scenes}
-                branches={branches}
+                scenes={scenesWithFindings}
+                branches={branchesWithFindings}
               />
             )}
             {openPanelId === "create-branch" && (
               <CreateBranchPanel
-                scenes={scenes}
+                scenes={scenesWithFindings}
                 onBranchCreated={handleBranchCreated}
               />
             )}
             {openPanelId === "merge-preview" && (
               <MergePreviewPanel
-                branches={branches}
+                branches={branchesWithFindings}
                 onMergeBranch={handleMergeBranch}
               />
             )}

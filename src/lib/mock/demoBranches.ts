@@ -16,7 +16,7 @@ const ALT_SCENES_A: Scene[] = [
     characters: ["Kael", "Mira"],
     emotionalBeat: "Hope",
     reviewStatus: "Under Review",
-    continuityFlag: "Kael references 'the aqueduct map' — this map was never established in any scene.",
+    continuityFlag: undefined,
     imageUrl: undefined,
     contributor: { id: "user-2", displayName: "Theo Park" },
     revision: 1,
