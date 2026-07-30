@@ -25,8 +25,12 @@ export interface Scene {
   location: string;
   /** Dialogue or prose excerpt shown on the card */
   dialogueExcerpt: string;
+  /** Structured action used by the visual diff and continuity review. */
+  action?: string;
   /** Character names appearing in this scene */
   characters: string[];
+  /** Structured props present in the scene. */
+  propsUsed?: string[];
   /** Emotional beat label, e.g. "Tension", "Hope", "Loss" */
   emotionalBeat: string;
   /** Card review/approval status */

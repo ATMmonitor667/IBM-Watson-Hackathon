@@ -25,7 +25,9 @@ export const DEMO_SCENES: Scene[] = [
     location: "Submerged Central Station",
     dialogueExcerpt:
       '"The water remembers everything," Kael whispered, watching the compass spin. "That\'s what makes it dangerous."',
+    action: "Kael breaks the surface and watches the compass spin.",
     characters: ["Kael", "The Compass"],
+    propsUsed: ["The Compass"],
     emotionalBeat: "Dread",
     reviewStatus: "Approved",
     continuityFlag: undefined,
@@ -46,7 +48,9 @@ export const DEMO_SCENES: Scene[] = [
     location: "Flooded Market District",
     dialogueExcerpt:
       "Vendors still called out prices in the old tongue — their voices carried through six feet of green water as though the flood had never come.",
+    action: "Kael and Mira cross the submerged market with the compass.",
     characters: ["Kael", "Mira", "The Ferryman"],
+    propsUsed: ["The Compass"],
     emotionalBeat: "Melancholy",
     reviewStatus: "Under Review",
     continuityFlag: undefined,
@@ -67,7 +71,9 @@ export const DEMO_SCENES: Scene[] = [
     location: "Old Harbour Lighthouse",
     dialogueExcerpt:
       'Mira grabbed his arm. "It\'s pointing up. Compasses don\'t point up." Kael stared at the needle. "This one does."',
+    action: "The compass needle turns upward as Mira stops Kael.",
     characters: ["Kael", "Mira"],
+    propsUsed: ["The Compass"],
     emotionalBeat: "Tension",
     reviewStatus: "Draft",
     continuityFlag: undefined,
@@ -88,7 +94,9 @@ export const DEMO_SCENES: Scene[] = [
     location: "Submerged City Archive",
     dialogueExcerpt:
       "The books had not rotted. The ink had not run. Whatever preserved them was not water — and it was not natural.",
+    action: "Kael opens the preserved archive while the Archivist watches.",
     characters: ["Kael", "The Archivist"],
+    propsUsed: ["The Compass", "Preserved books"],
     emotionalBeat: "Wonder",
     reviewStatus: "Approved",
     continuityFlag: undefined,
@@ -109,7 +117,9 @@ export const DEMO_SCENES: Scene[] = [
     location: "Northern Flood Gate",
     dialogueExcerpt:
       '"Open the gate and the lower city drowns. Leave it shut and the upper city starves." The Ferryman spread his hands. "That\'s the only choice left."',
+    action: "The group confronts the final choice at the northern flood gate.",
     characters: ["Kael", "Mira", "The Ferryman", "The Archivist"],
+    propsUsed: ["The Compass", "Flood gate controls"],
     emotionalBeat: "Despair",
     reviewStatus: "Merged",
     continuityFlag: undefined,

@@ -38,9 +38,7 @@ export function ReviewStudio({ projectId }: ReviewStudioProps) {
   }, [selectedBranchId]);
 
   const selectedBranch = altBranches.find((b) => b.id === selectedBranchId);
-  const sourceScene = selectedBranch
-    ? DEMO_SCENES.find((s) => s.id === selectedBranch.sourceSceneId)
-    : undefined;
+  const canonBranch = branches.find((branch) => branch.isCanon);
 
   const sceneTitleById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -94,8 +92,8 @@ export function ReviewStudio({ projectId }: ReviewStudioProps) {
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
                 Visual diff
               </p>
-              {selectedBranch && (
-                <BranchDiffView sourceScene={sourceScene} branchScenes={selectedBranch.scenes} />
+              {selectedBranch && canonBranch && (
+                <BranchDiffView canonBranch={canonBranch} branch={selectedBranch} />
               )}
             </div>
 
