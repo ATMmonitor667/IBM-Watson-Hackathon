@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ImageIcon, Loader2, Upload, X } from "lucide-react";
 
+import { AppImage } from "@/components/ui/AppImage";
 import { useCharacterStore } from "@/store/characterStore";
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,7 @@ export function CharacterUploadForm({ projectId, onClose }: CharacterUploadFormP
               className="flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-slate-800 text-slate-500 transition hover:border-violet-500/50 hover:text-slate-400"
             >
               {imagePreview ? (
-                <img
+                <AppImage
                   src={imagePreview}
                   alt="Character reference preview"
                   className="h-full w-full rounded-lg object-cover"

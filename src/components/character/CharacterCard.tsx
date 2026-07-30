@@ -1,6 +1,7 @@
 "use client";
 
 import type { Character } from "@/types/character";
+import { AppImage } from "@/components/ui/AppImage";
 import { ImageIcon, Lock, Sparkles } from "lucide-react";
 
 interface CharacterCardProps {
@@ -26,7 +27,7 @@ export function CharacterCard({ character, isSelected, onSelect }: CharacterCard
       {/* Reference image */}
       <div className="relative h-32 w-full overflow-hidden bg-slate-800">
         {lockedVersion?.imageUrl ? (
-          <img
+          <AppImage
             src={lockedVersion.imageUrl}
             alt={`Reference image for ${character.name}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

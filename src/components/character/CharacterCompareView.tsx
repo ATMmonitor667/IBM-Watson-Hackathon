@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ImageIcon, Loader2, Lock, LockOpen, Sparkles } from "lucide-react";
 
+import { AppImage } from "@/components/ui/AppImage";
 import { useCharacterStore } from "@/store/characterStore";
 import type { Character, CharacterVersion } from "@/types/character";
 
@@ -27,7 +28,7 @@ function VersionPane({
     >
       <div className="relative h-40 w-full bg-slate-900">
         {version?.imageUrl ? (
-          <img
+          <AppImage
             src={version.imageUrl}
             alt={version.source === "ai-refined" ? "AI-refined reference" : "Original reference"}
             className="h-full w-full object-cover"

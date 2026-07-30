@@ -2,6 +2,7 @@ import { ImageIcon } from "lucide-react";
 import * as React from "react";
 
 import { StateChip } from "@/components/story/state-chip";
+import { AppImage } from "@/components/ui/AppImage";
 import { RelativeTime } from "@/components/ui/relative-time";
 import type { SceneWithVersion } from "@/lib/types/schemas";
 import { cn } from "@/lib/utils";
@@ -62,8 +63,7 @@ function SceneCard({
           long before the real artwork lands. */}
       <div className="relative aspect-video border-b border-sv-edge bg-sv-inset">
         {version.panel_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <AppImage
             src={version.panel_image_url}
             alt=""
             className="size-full object-cover"
