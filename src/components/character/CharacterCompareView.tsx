@@ -1,9 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { ImageIcon, Loader2, Lock, LockOpen, Sparkles } from "lucide-react";
+import {
+  Check,
+  ImageIcon,
+  Loader2,
+  Lock,
+  LockOpen,
+  Sparkles,
+  X,
+} from "lucide-react";
 
+import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
 import { AppImage } from "@/components/ui/AppImage";
+import {
+  CharacterRefinementResponseSchema,
+  type CharacterRefinementResponse,
+} from "@/lib/ai/schemas";
 import { useCharacterStore } from "@/store/characterStore";
 import type { Character, CharacterVersion } from "@/types/character";
 
@@ -30,13 +43,19 @@ function VersionPane({
         {version?.imageUrl ? (
           <AppImage
             src={version.imageUrl}
-            alt={version.source === "ai-refined" ? "AI-refined reference" : "Original reference"}
+            alt={
+              version.source === "ai-refined"
+                ? "AI-refined reference"
+                : "Original reference"
+            }
             className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-600">
             <ImageIcon className="size-7" aria-hidden="true" />
-            <span className="text-xs">{isEmpty ? "Not generated yet" : "No image"}</span>
+            <span className="text-xs">
+              {isEmpty ? "Not generated yet" : "No image"}
+            </span>
           </div>
         )}
         {isLocked && (
@@ -58,7 +77,9 @@ function VersionPane({
         </span>
         {version ? (
           <>
-            <p className="text-xs leading-relaxed text-slate-300">{version.description}</p>
+            <p className="text-xs leading-relaxed text-slate-300">
+              {version.description}
+            </p>
             <div className="flex flex-wrap gap-1 pt-1">
               {version.visualTraits.map((trait) => (
                 <span
@@ -72,7 +93,7 @@ function VersionPane({
           </>
         ) : (
           <p className="text-xs text-slate-500">
-            Run AI refinement to generate a consistency-checked version.
+            Generate and approve an AI proposal to create a refined version.
           </p>
         )}
       </div>
@@ -80,15 +101,115 @@ function VersionPane({
   );
 }
 
-export function CharacterCompareView({ character }: CharacterCompareViewProps) {
-  const refineCharacter = useCharacterStore((s) => s.refineCharacter);
-  const lockCharacter = useCharacterStore((s) => s.lockCharacter);
-  const refiningId = useCharacterStore((s) => s.refiningId);
+export function CharacterCompareView({
+  character,
+}: CharacterCompareViewProps) {
+  const approveRefinement = useCharacterStore(
+    (state) => state.approveRefinement,
+  );
+  const lockCharacter = useCharacterStore((state) => state.lockCharacter);
   const [lockingId, setLockingId] = useState<string | null>(null);
+  const [refinementPrompt, setRefinementPrompt] = useState("");
+  const [proposal, setProposal] =
+    useState<CharacterRefinementResponse | null>(null);
+  const [isRefining, setIsRefining] = useState(false);
+  const [refinementError, setRefinementError] = useState<string | null>(null);
 
-  const originalVersion = character.versions.find((v) => v.source === "original");
-  const refinedVersion = [...character.versions].reverse().find((v) => v.source === "ai-refined");
-  const isRefining = refiningId === character.id;
+  const originalVersion = character.versions.find(
+    (version) => version.source === "original",
+  );
+  const refinedVersion = [...character.versions]
+    .reverse()
+    .find((version) => version.source === "ai-refined");
+  const lockedVersion = character.versions.find(
+    (version) => version.id === character.lockedVersionId,
+  );
+
+  async function handleRefine(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const prompt = refinementPrompt.trim();
+    if (prompt.length < 3) return;
+
+    setIsRefining(true);
+    setRefinementError(null);
+    setProposal(null);
+
+    try {
+      const response = await fetch("/api/ai/character-refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: character.projectId,
+          branchName: "canon",
+          canonFacts: [],
+          branchFacts: [],
+          sceneHistory: [],
+          characterSummary: [
+            lockedVersion?.description ?? character.description,
+            lockedVersion?.visualTraits.length
+              ? `Locked visual traits: ${lockedVersion.visualTraits.join(", ")}.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          characterId: character.id,
+          refinementPrompt: prompt,
+        }),
+      });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        const message =
+          typeof payload === "object" &&
+          payload !== null &&
+          "error" in payload &&
+          typeof payload.error === "string"
+            ? payload.error
+            : "Character refinement failed";
+        throw new Error(message);
+      }
+
+      const parsed = CharacterRefinementResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new Error("Character refinement returned an invalid proposal");
+      }
+      if (parsed.data.characterId !== character.id) {
+        throw new Error(
+          "Character refinement returned a proposal for another character",
+        );
+      }
+
+      setProposal(parsed.data);
+    } catch (error) {
+      setRefinementError(
+        error instanceof Error ? error.message : "Character refinement failed",
+      );
+    } finally {
+      setIsRefining(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!proposal) return;
+    const version = approveRefinement(character.id, proposal);
+    if (!version) {
+      setRefinementError("The proposal could not be applied to this character");
+      return;
+    }
+
+    setProposal(null);
+    setRefinementPrompt("");
+    const { toast } = await import("sonner");
+    toast.success(`Refinement approved for ${character.name}`, {
+      description:
+        "A new character version was created. The canon lock is unchanged.",
+    });
+  }
+
+  function handleReject() {
+    setProposal(null);
+    setRefinementError(null);
+  }
 
   async function handleLock(versionId: string) {
     setLockingId(versionId);
@@ -101,27 +222,11 @@ export function CharacterCompareView({ character }: CharacterCompareViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-white">{character.name}</h3>
-          <p className="text-xs text-slate-500">{character.role}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => refineCharacter(character.id)}
-          disabled={isRefining}
-          className="inline-flex items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-60"
-        >
-          {isRefining ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="size-3.5" />
-          )}
-          {isRefining ? "Refining…" : "Run AI Refinement"}
-        </button>
+      <div>
+        <h3 className="text-base font-semibold text-white">{character.name}</h3>
+        <p className="text-xs text-slate-500">{character.role}</p>
       </div>
 
-      {/* Side-by-side comparison */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <VersionPane
           version={originalVersion}
@@ -134,7 +239,117 @@ export function CharacterCompareView({ character }: CharacterCompareViewProps) {
         />
       </div>
 
-      {/* Lock actions */}
+      <form
+        onSubmit={handleRefine}
+        className="flex flex-col gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4"
+      >
+        <div>
+          <label
+            htmlFor={`refinement-prompt-${character.id}`}
+            className="text-xs font-semibold uppercase tracking-widest text-violet-300"
+          >
+            Refinement direction
+          </label>
+          <p className="mt-1 text-xs text-slate-400">
+            Describe the visual or narrative change you want. Locked traits
+            remain constraints.
+          </p>
+        </div>
+        <textarea
+          id={`refinement-prompt-${character.id}`}
+          value={refinementPrompt}
+          onChange={(event) => setRefinementPrompt(event.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="Example: Show the cost of losing the compass while preserving Kael's pressure suit and scar."
+          className="w-full resize-y rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-violet-500"
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] text-slate-500">
+            {refinementPrompt.length}/1000
+          </span>
+          <button
+            type="submit"
+            disabled={isRefining || refinementPrompt.trim().length < 3}
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isRefining ? (
+              <Loader2
+                className="size-3.5 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Sparkles className="size-3.5" aria-hidden="true" />
+            )}
+            {isRefining ? "Generating proposal…" : "Generate proposal"}
+          </button>
+        </div>
+        {refinementError && (
+          <p role="alert" className="text-xs text-red-300">
+            {refinementError}
+          </p>
+        )}
+      </form>
+
+      {proposal && (
+        <section
+          aria-label="AI refinement proposal"
+          className="flex flex-col gap-4 rounded-lg border border-violet-500/40 bg-slate-800 p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-white">
+              Refinement proposal
+            </h4>
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+              Not applied
+            </span>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Proposed description
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-200">
+              {proposal.proposedDescription}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Generation instruction
+            </p>
+            <p className="mt-1 rounded-md border border-white/10 bg-slate-900 p-3 text-xs leading-relaxed text-slate-300">
+              {proposal.proposedGenerationInstruction}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Why the AI changed it
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              {proposal.changeRationale}
+            </p>
+          </div>
+          <AiDisclaimer feature="characterRefine" />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleReject}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-red-400/40 hover:text-red-300"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+              Reject proposal
+            </button>
+            <button
+              type="button"
+              onClick={handleApprove}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-500"
+            >
+              <Check className="size-3.5" aria-hidden="true" />
+              Approve proposal
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="flex flex-col gap-2 border-t border-white/10 pt-3 sm:flex-row">
         <button
           type="button"
@@ -168,8 +383,8 @@ export function CharacterCompareView({ character }: CharacterCompareViewProps) {
         </button>
       </div>
       <p className="text-[10px] text-slate-500">
-        Locking sets the canon reference used everywhere this character appears. You can
-        re-lock a different version any time before final merge.
+        Locking sets the canon reference used everywhere this character appears.
+        You can re-lock a different version any time before final merge.
       </p>
     </div>
   );

@@ -11,6 +11,7 @@ export interface CharacterVersion {
   id: string;
   imageUrl: string;
   description: string;
+  generationInstruction?: string;
   /** Comma-separated or short list of visual traits at this version */
   visualTraits: string[];
   source: CharacterVersionSource;
