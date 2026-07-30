@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
-import { fetchBranches, insertScene } from "@/lib/supabase/db";
+import {
+  fetchBranches,
+  fetchSceneRevisions,
+  insertScene,
+  reviseScene,
+} from "@/lib/supabase/db";
 import type { Scene } from "@/types/workspace";
 
 type StoredScene = {
@@ -146,5 +151,130 @@ describe("insertScene", () => {
         (storedScene) => storedScene.id,
       ),
     ).toEqual(["scene-alternate-1"]);
+  });
+});
+
+describe("scene revisions", () => {
+  it("uses the atomic revision RPC with an optimistic revision check", async () => {
+    let rpcName = "";
+    let rpcPayload: Record<string, unknown> | null = null;
+    const client = {
+      rpc(name: string, payload: Record<string, unknown>) {
+        rpcName = name;
+        rpcPayload = payload;
+        return {
+          async single() {
+            return {
+              data: {
+                id: "scene-alternate-1",
+                project_id: "project-1",
+                branch_id: "branch-alternate",
+                scene_number: 1,
+                title: "The Revised Choice",
+                location: "Drowned Stair",
+                dialogue_excerpt: "Wren chose a safer route.",
+                characters: ["Wren"],
+                emotional_beat: "Relief",
+                review_status: "Draft",
+                continuity_flag: null,
+                image_url: null,
+                contributor_name: "Rahat",
+                revision: 2,
+                status: "draft",
+                order: 0,
+                parent_id: null,
+                created_at: "2026-07-30T12:00:00.000Z",
+                updated_at: "2026-07-30T13:00:00.000Z",
+              },
+              error: null,
+            };
+          },
+        };
+      },
+    } as unknown as SupabaseClient;
+
+    const revised = await reviseScene(
+      client,
+      "scene-alternate-1",
+      1,
+      {
+        title: "The Revised Choice",
+        location: "Drowned Stair",
+        dialogueExcerpt: "Wren chose a safer route.",
+        characters: ["Wren"],
+        emotionalBeat: "Relief",
+      },
+      "Rahat",
+    );
+
+    expect(rpcName).toBe("revise_scene");
+    expect(rpcPayload).toMatchObject({
+      p_scene_id: "scene-alternate-1",
+      p_expected_revision: 1,
+      p_title: "The Revised Choice",
+    });
+    expect(revised).toMatchObject({
+      id: "scene-alternate-1",
+      title: "The Revised Choice",
+      revision: 2,
+      reviewStatus: "Draft",
+    });
+  });
+
+  it("loads immutable revision snapshots newest first", async () => {
+    const client = {
+      from(table: string) {
+        expect(table).toBe("scene_revisions");
+        return {
+          select() {
+            return {
+              eq(column: string, value: string) {
+                expect([column, value]).toEqual(["project_id", "project-1"]);
+                return {
+                  async order(orderColumn: string, options: unknown) {
+                    expect([orderColumn, options]).toEqual([
+                      "revision",
+                      { ascending: false },
+                    ]);
+                    return {
+                      data: [
+                        {
+                          id: "revision-1",
+                          scene_id: "scene-alternate-1",
+                          project_id: "project-1",
+                          branch_id: "branch-alternate",
+                          revision: 1,
+                          title: "The Original Choice",
+                          location: "Drowned Stair",
+                          dialogue_excerpt: "Wren reached for the stranger.",
+                          characters: ["Wren", "The Stranger"],
+                          emotional_beat: "Resolve",
+                          contributor_id: "user-1",
+                          contributor_name: "Rahat",
+                          created_at: "2026-07-30T12:00:00.000Z",
+                        },
+                      ],
+                      error: null,
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as SupabaseClient;
+
+    const revisions = await fetchSceneRevisions(client, "project-1");
+
+    expect(revisions).toEqual([
+      expect.objectContaining({
+        sceneId: "scene-alternate-1",
+        branchId: "branch-alternate",
+        revision: 1,
+        title: "The Original Choice",
+        contributor: { id: "user-1", displayName: "Rahat" },
+      }),
+    ]);
   });
 });
