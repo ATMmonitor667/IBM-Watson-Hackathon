@@ -11,6 +11,10 @@ import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
 import { buildCanonContext } from "@/lib/ai/contextBuilder";
 import {
+  compareBranchToCanon,
+  type SceneComparison,
+} from "@/lib/story/branchDiff";
+import {
   buildPanelRequest,
   PanelGenerationResultSchema,
   type PanelGenerationResult,
@@ -710,9 +714,27 @@ export function CreateBranchPanel({ scenes, onBranchCreated }: CreateBranchPanel
 // ---------------------------------------------------------------------------
 // Merge preview panel — two-step: AI preview → confirm
 // ---------------------------------------------------------------------------
+function mergeActionLabel(comparison: SceneComparison): string {
+  if (comparison.status === "added") {
+    return (
+      `Add branch Scene #${comparison.branchScene.sceneNumber} ` +
+      `"${comparison.branchScene.title}" to canon`
+    );
+  }
+
+  return (
+    `Replace canon Scene #${comparison.canonScene?.sceneNumber} ` +
+    `"${comparison.canonScene?.title}" with ` +
+    `"${comparison.branchScene.title}"`
+  );
+}
+
 interface MergePreviewPanelProps {
   branches: Branch[];
-  onMergeBranch: (branchId: string) => void;
+  onMergeBranch: (
+    branchId: string,
+    selectedSceneIds: string[],
+  ) => Promise<void>;
 }
 
 export function MergePreviewPanel({
@@ -726,13 +748,24 @@ export function MergePreviewPanel({
   const [step, setStep]               = useState<Step>("idle");
   const [aiResult, setAiResult]       = useState<MergeAssistantResponse | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<MergeStrategy | null>(null);
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
 
   const branch = branches.find((b) => b.id === mergeBranchId);
+  const canonBranch = branches.find((candidate) => candidate.isCanon);
+  const selectableComparisons =
+    branch && canonBranch
+      ? compareBranchToCanon(canonBranch, branch).comparisons.filter(
+          (comparison) => comparison.status !== "unchanged",
+        )
+      : [];
+  const selectedIdSet = new Set(selectedSceneIds);
+  const selectedComparisons = selectableComparisons.filter((comparison) =>
+    selectedIdSet.has(comparison.branchScene.id),
+  );
 
   // Build a minimal CanonContext from branches
   function buildMergeCtx() {
-    const canonBranch = branches.find((b) => b.isCanon);
     if (!branch || !canonBranch) return null;
     return buildCanonContext(
       {
@@ -769,19 +802,27 @@ export function MergePreviewPanel({
     }
     setAiResult(result.data);
     setSelectedStrategy(result.data.strategies[0] ?? null);
+    setSelectedSceneIds([]);
     setStep("preview");
   }
 
+  function toggleScene(sceneId: string) {
+    setSelectedSceneIds((current) =>
+      current.includes(sceneId)
+        ? current.filter((candidate) => candidate !== sceneId)
+        : [...current, sceneId],
+    );
+  }
+
   async function handleConfirm() {
-    if (!mergeBranchId) return;
+    if (!mergeBranchId || selectedSceneIds.length === 0) return;
     setStep("confirming");
-    onMergeBranch(mergeBranchId);
+    await onMergeBranch(mergeBranchId, selectedSceneIds);
     closePanels();
     const { toast } = await import("sonner");
-    toast.success(
-      `Strategy "${selectedStrategy?.label ?? "selected"}" applied`,
-      { description: "Branch merged into canon." },
-    );
+    toast.success(`${selectedSceneIds.length} selected scene(s) merged`, {
+      description: "Only the checked scenes changed canon.",
+    });
   }
 
   if (!branch) return null;
@@ -915,6 +956,124 @@ export function MergePreviewPanel({
               </div>
             </div>
 
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Choose scenes
+              </p>
+              <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
+                Strategies are advisory. Canon changes only for scenes you
+                explicitly check.
+              </p>
+              {selectableComparisons.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {selectableComparisons.map((comparison) => {
+                    const sceneId = comparison.branchScene.id;
+                    const checked = selectedIdSet.has(sceneId);
+                    return (
+                      <label
+                        key={comparison.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                          checked
+                            ? "border-emerald-500/50 bg-emerald-500/10"
+                            : "border-white/10 bg-slate-800 hover:border-white/20"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleScene(sceneId)}
+                          aria-label={`Select ${mergeActionLabel(comparison)}`}
+                          className="mt-0.5 size-4 shrink-0 accent-emerald-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-medium text-white">
+                              {mergeActionLabel(comparison)}
+                            </span>
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
+                                comparison.status === "added"
+                                  ? "bg-cyan-500/15 text-cyan-300"
+                                  : "bg-amber-500/15 text-amber-300"
+                              }`}
+                            >
+                              {comparison.status}
+                            </span>
+                          </span>
+                          <span className="mt-2 flex flex-col gap-1">
+                            {comparison.changes.map((change) => (
+                              <span
+                                key={change.field}
+                                className="text-[10px] leading-relaxed text-slate-400"
+                              >
+                                <span className="font-medium text-slate-300">
+                                  {change.label}:
+                                </span>{" "}
+                                {change.before && (
+                                  <>
+                                    <span className="text-red-300/80 line-through">
+                                      {change.before}
+                                    </span>{" "}
+                                    <span aria-hidden="true">to</span>{" "}
+                                  </>
+                                )}
+                                <span className="text-emerald-300/90">
+                                  {change.after ?? "Removed"}
+                                </span>
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-white/10 bg-slate-800 p-3 text-xs text-slate-400">
+                  This branch has no changed or added scenes to merge.
+                </p>
+              )}
+            </div>
+
+            <div
+              aria-label="Canon changes to apply"
+              className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-300">
+                Canon changes to apply
+              </p>
+              {selectedComparisons.length > 0 ? (
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {selectedComparisons.map((comparison) => (
+                    <li
+                      key={comparison.id}
+                      className="flex items-start gap-1.5 text-xs text-slate-200"
+                    >
+                      <CheckCircle2
+                        className="mt-0.5 size-3.5 shrink-0 text-emerald-400"
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <span>{mergeActionLabel(comparison)}</span>
+                        <span className="mt-1 flex flex-col gap-0.5 text-[10px] text-slate-400">
+                          {comparison.changes.map((change) => (
+                            <span key={change.field}>
+                              {change.label}: {change.before ?? "Not in canon"}{" "}
+                              to {change.after ?? "Removed"}
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-xs text-slate-400">
+                  Nothing selected. Canon will not change.
+                </p>
+              )}
+            </div>
+
             <AiDisclaimer feature="mergeAssistant" />
 
             {/* Confirm */}
@@ -929,10 +1088,18 @@ export function MergePreviewPanel({
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={!selectedStrategy || step === "confirming"}
+                disabled={
+                  !selectedStrategy ||
+                  selectedSceneIds.length === 0 ||
+                  step === "confirming"
+                }
                 className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {step === "confirming" ? "Merging…" : "Confirm merge"}
+                {step === "confirming"
+                  ? "Merging…"
+                  : `Merge ${selectedSceneIds.length} scene${
+                      selectedSceneIds.length === 1 ? "" : "s"
+                    }`}
               </button>
             </div>
           </>

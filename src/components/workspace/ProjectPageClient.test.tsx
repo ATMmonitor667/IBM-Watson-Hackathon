@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectPageClient } from "@/components/workspace/ProjectPageClient";
 import { useProjectStore } from "@/store/projectStore";
+import { useUiStore } from "@/store/uiStore";
 import type { Branch, Project, Scene } from "@/types/workspace";
 
 const { fetchBranches, fetchScenes } = vi.hoisted(() => ({
@@ -22,7 +24,15 @@ vi.mock("@/lib/supabase/db", () => ({
 vi.mock("@/components/workspace/BranchTree", () => ({
   BranchTree: ({ branches }: { branches: Branch[] }) => (
     <div data-testid="branch-tree">
-      {branches.map((branch) => branch.name).join(",")}
+      {branches
+        .map(
+          (currentBranch) =>
+            `${currentBranch.name}:${currentBranch.isCanon}:` +
+            currentBranch.scenes
+              .map((currentScene) => `${currentScene.title}:${currentScene.reviewStatus}`)
+              .join("|"),
+        )
+        .join(",")}
     </div>
   ),
 }));
@@ -51,7 +61,21 @@ vi.mock("@/components/workspace/BranchPanels", () => ({
   SceneDetailPanel: () => null,
   CreateBranchPanel: () => null,
   CreateScenePanel: () => null,
-  MergePreviewPanel: () => null,
+  MergePreviewPanel: ({
+    onMergeBranch,
+  }: {
+    onMergeBranch: (
+      branchId: string,
+      selectedSceneIds: string[],
+    ) => Promise<void>;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onMergeBranch("branch-tunnel", ["scene-alt-2a"])}
+    >
+      Merge selected demo scene
+    </button>
+  ),
 }));
 
 const project: Project = {
@@ -108,6 +132,10 @@ beforeEach(() => {
     mockReason: null,
     loadProjects: vi.fn().mockResolvedValue(undefined),
   });
+  useUiStore.setState({
+    openPanelId: null,
+    mergeBranchId: null,
+  });
 });
 
 describe("ProjectPageClient workspace loading", () => {
@@ -155,5 +183,36 @@ describe("ProjectPageClient workspace loading", () => {
     expect(screen.getByTestId("scene-canvas")).not.toBeEmptyDOMElement();
     expect(fetchBranches).not.toHaveBeenCalled();
     expect(fetchScenes).not.toHaveBeenCalled();
+  });
+
+  it("applies only selected branch scenes to canon", async () => {
+    const user = userEvent.setup();
+    useProjectStore.setState({
+      projects: [{ ...project, id: "demo-1", title: "Demo Project" }],
+      dataSource: "mock",
+      mockReason: "no-credentials",
+    });
+    useUiStore.setState({
+      openPanelId: "merge-preview",
+      mergeBranchId: "branch-tunnel",
+    });
+
+    render(<ProjectPageClient id="demo-1" />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Merge selected demo scene" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("scene-canvas")).toHaveTextContent(
+        "The Hidden Tunnel",
+      );
+    });
+    expect(screen.getByTestId("scene-canvas")).toHaveTextContent(
+      "Below the Archive",
+    );
+    expect(screen.getByTestId("branch-tree")).toHaveTextContent(
+      "The Tunnel Route:false:The Hidden Tunnel:Merged|The Drowned Engine Room:Draft",
+    );
   });
 });
