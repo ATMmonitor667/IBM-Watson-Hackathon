@@ -1,0 +1,74 @@
+name: CI
+
+# Runs on every push and every pull request. Nothing enforced green until now,
+# which is how `npm run typecheck` stayed broken across three sessions while
+# everyone assumed someone else was watching it.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch makes the older run irrelevant. Cancelling it
+# keeps feedback fast on the last day, when queue time is the expensive part.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: install · lint · typecheck · test · scan · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The secret scan reads ALL history. A shallow clone would let a
+          # credential committed three commits ago pass unnoticed, which defeats
+          # the point of scanning history rather than the working tree.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          # package.json requires >=20.9. Pin the major so a Node release cannot
+          # break the build on the day of the deadline.
+          node-version: "20"
+          cache: npm
+
+      # `npm ci` — not `npm install` — on purpose. It fails when package-lock.json
+      # drifts from package.json, which is exactly the breakage a judge hits when
+      # cloning the repo fresh. This step IS the clean-clone test.
+      - name: Install
+        run: npm ci
+
+      # Ordered cheapest-first so an obvious failure reports in seconds rather
+      # than after a four-minute build. Each step runs even if an earlier one
+      # failed, so one push surfaces every problem instead of one per fix.
+      - name: Lint
+        if: '!cancelled()'
+        run: npm run lint
+
+      - name: Typecheck
+        if: '!cancelled()'
+        run: npm run typecheck
+
+      - name: Test
+        if: '!cancelled()'
+        run: npm test
+
+      - name: Secret scan (full history)
+        if: '!cancelled()'
+        run: npm run scan:secrets
+
+      - name: Build
+        if: '!cancelled()'
+        run: npm run build
+        env:
+          # The build must succeed with no credentials — which is also what a
+          # judge cloning the repo will experience. AI_MOCK keeps the AI routes
+          # on their deterministic fallbacks instead of attempting a network
+          # call during static generation.
+          AI_MOCK: "true"
