@@ -54,6 +54,8 @@ const VALID_BODY = {
   characterSummary:
     "Kael — explorer, mid-30s, worn leather coat, glowing compass on belt.",
   characterId: "char-kael-1",
+  refinementPrompt:
+    "Show the cost of losing the compass while preserving Kael's locked silhouette.",
 };
 
 beforeEach(() => {
@@ -104,6 +106,29 @@ describe("POST /api/ai/character-refine — mock mode", () => {
     expect(typeof data.proposedGenerationInstruction).toBe("string");
     expect(data.proposedGenerationInstruction.length).toBeGreaterThan(0);
   });
+
+  it("returns the requested character id in mock mode", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, characterId: "char-mira" }),
+    );
+    const data = await res.json();
+
+    expect(data.characterId).toBe("char-mira");
+  });
+
+  it("reflects the creator prompt in the mock proposal", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(VALID_BODY));
+    const data = await res.json();
+
+    expect(data.proposedDescription).toContain(VALID_BODY.refinementPrompt);
+    expect(data.proposedGenerationInstruction).toContain(
+      VALID_BODY.refinementPrompt,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -133,6 +158,16 @@ describe("POST /api/ai/character-refine — validation errors", () => {
     vi.stubEnv("AI_MOCK", "true");
 
     const res = await POST(makeRequest({ ...VALID_BODY, characterId: "" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when the refinement prompt is missing", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { refinementPrompt, ...noPrompt } = VALID_BODY;
+    const res = await POST(makeRequest(noPrompt));
+
     expect(res.status).toBe(400);
   });
 

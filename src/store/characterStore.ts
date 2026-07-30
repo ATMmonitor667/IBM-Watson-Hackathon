@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { Character, CharacterFormValues, CharacterVersion } from "@/types/character";
 import { DEMO_CHARACTERS } from "@/lib/mock/demoCharacters";
+import type { CharacterRefinementResponse } from "@/lib/ai/schemas";
 
 // ---------------------------------------------------------------------------
 // Character Studio store
@@ -12,20 +13,21 @@ import { DEMO_CHARACTERS } from "@/lib/mock/demoCharacters";
 //   1. loadCharacters()   -> replace with Rahat's GET /api/projects/:id/characters
 //   2. addCharacter()     -> replace with Supabase Storage upload + Rahat's
 //                            POST /api/characters (character record)
-//   3. refineCharacter()  -> replace with Farin's POST /api/characters/:id/refine
-//   4. lockCharacter()    -> replace with Rahat's PATCH /api/characters/:id/lock
+//   3. approveRefinement() -> persist approved versions through the character API
+//   4. lockCharacter()     -> replace with Rahat's PATCH /api/characters/:id/lock
 // ---------------------------------------------------------------------------
 
 interface CharacterStore {
   characters: Character[];
   isLoading: boolean;
   error: string | null;
-  /** Character id currently mid-refine, or null */
-  refiningId: string | null;
 
   loadCharacters: (projectId: string) => Promise<void>;
   addCharacter: (projectId: string, values: CharacterFormValues, imageDataUrl: string) => Promise<Character>;
-  refineCharacter: (characterId: string) => Promise<void>;
+  approveRefinement: (
+    characterId: string,
+    proposal: CharacterRefinementResponse,
+  ) => CharacterVersion | undefined;
   lockCharacter: (characterId: string, versionId: string) => Promise<void>;
   getCharacter: (id: string) => Character | undefined;
 }
@@ -34,7 +36,6 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
   characters: [],
   isLoading: false,
   error: null,
-  refiningId: null,
 
   loadCharacters: async (projectId) => {
     set({ isLoading: true, error: null });
@@ -86,38 +87,37 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
     return newCharacter;
   },
 
-  refineCharacter: async (characterId) => {
-    set({ refiningId: characterId });
-    try {
-      // MOCK: replace with `await fetch(\`/api/characters/${characterId}/refine\`, { method: "POST" })`
-      // once Farin's AI refinement endpoint is ready. That endpoint returns a
-      // proposed updated description / trait list (and eventually an image).
-      await new Promise((r) => setTimeout(r, 900)); // simulate model latency
+  approveRefinement: (characterId, proposal) => {
+    const character = get().characters.find((candidate) => candidate.id === characterId);
+    if (!character || proposal.characterId !== characterId) return undefined;
 
-      const character = get().characters.find((c) => c.id === characterId);
-      if (!character) return;
+    const createdAt = new Date().toISOString();
+    const sourceVersion =
+      character.versions.find((version) => version.id === character.lockedVersionId) ??
+      character.versions[0];
+    const refined: CharacterVersion = {
+      id: `char-version-${Date.now()}`,
+      imageUrl: sourceVersion?.imageUrl ?? "",
+      description: proposal.proposedDescription,
+      generationInstruction: proposal.proposedGenerationInstruction,
+      visualTraits: sourceVersion?.visualTraits ?? character.visualTraits,
+      source: "ai-refined",
+      createdAt,
+    };
 
-      // MOCK: a deterministic "refined" version so the demo doesn't depend on
-      // network availability. Real version will come from Farin's endpoint.
-      const refined: CharacterVersion = {
-        id: `char-version-${Date.now()}`,
-        imageUrl: character.versions[0]?.imageUrl ?? "",
-        description: `${character.description} Refined for visual consistency: sharper silhouette, consistent palette across panels, and clearer read at small sizes.`,
-        visualTraits: [...character.visualTraits, "Consistent palette lock"],
-        source: "ai-refined",
-        createdAt: new Date().toISOString(),
-      };
+    set((state) => ({
+      characters: state.characters.map((candidate) =>
+        candidate.id === characterId
+          ? {
+              ...candidate,
+              versions: [...candidate.versions, refined],
+              updatedAt: createdAt,
+            }
+          : candidate,
+      ),
+    }));
 
-      set((state) => ({
-        characters: state.characters.map((c) =>
-          c.id === characterId
-            ? { ...c, versions: [...c.versions, refined], updatedAt: refined.createdAt }
-            : c,
-        ),
-      }));
-    } finally {
-      set({ refiningId: null });
-    }
+    return refined;
   },
 
   lockCharacter: async (characterId, versionId) => {

@@ -16,7 +16,8 @@ import type { CanonContext } from "../schemas";
  */
 export function buildCharacterRefinePrompt(
   ctx: CanonContext,
-  characterId: string
+  characterId: string,
+  refinementPrompt: string,
 ): string {
   const canonFactLines =
     ctx.canonFacts.length > 0
@@ -42,6 +43,9 @@ ${characterId}
 === CURRENT LOCKED CHARACTER SUMMARY ===
 ${ctx.characterSummary}
 
+=== CREATOR'S REFINEMENT DIRECTION ===
+${refinementPrompt}
+
 === CANON FACTS (approved, immutable) ===
 ${canonFactLines}
 
@@ -50,13 +54,15 @@ ${branchFactLines}
 
 === INSTRUCTIONS ===
 1. Read the current character summary and all canon facts carefully.
-2. Propose an updated plain-text character description that is consistent with
+2. Follow the creator's refinement direction only where it does not conflict
+   with locked canon facts.
+3. Propose an updated plain-text character description that is consistent with
    ALL canon facts (especially any object states that have changed).
-3. Propose an updated image generation instruction — optimised for a text-to-image
+4. Propose an updated image generation instruction — optimised for a text-to-image
    model, graphic-novel style. Be concrete: clothing, expression, surroundings.
-4. Explain what changed and why (changeRationale), citing specific canon facts.
-5. Always set requiresApproval to true — never change this to false.
-6. Respond ONLY with a single valid JSON object. No markdown, no prose.
+5. Explain what changed and why (changeRationale), citing specific canon facts.
+6. Always set requiresApproval to true — never change this to false.
+7. Respond ONLY with a single valid JSON object. No markdown, no prose.
 
 === RESPONSE FORMAT ===
 {

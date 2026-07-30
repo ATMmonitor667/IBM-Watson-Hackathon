@@ -79,7 +79,7 @@ export function CharacterStudio({ projectId }: CharacterStudioProps) {
         {/* Compare / lock panel */}
         <section className="flex-1 overflow-y-auto p-6" aria-label="Character detail">
           {selected ? (
-            <CharacterCompareView character={selected} />
+            <CharacterCompareView key={selected.id} character={selected} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-slate-500">
               Select a character to view and refine its reference art.

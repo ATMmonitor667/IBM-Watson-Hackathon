@@ -28,7 +28,6 @@ import {
 } from "@/lib/ai/schemas";
 import { callWatsonx } from "@/lib/ai/provider";
 import { buildCharacterRefinePrompt } from "@/lib/ai/prompts/characterRefinePrompt";
-import { MOCK_CHARACTER_REFINEMENT } from "@/lib/ai/mocks";
 import {
   WatsonxCredentialError,
   WatsonxMalformedResponseError,
@@ -42,6 +41,7 @@ import {
 
 const CharacterRefineRequestSchema = CanonContextSchema.extend({
   characterId: z.string().min(1),
+  refinementPrompt: z.string().trim().min(3).max(1000),
 });
 
 export async function POST(req: NextRequest) {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { characterId, ...ctx } = parseResult.data;
+  const { characterId, refinementPrompt, ...ctx } = parseResult.data;
 
   // ------------------------------------------------------------------
   // 2. Attempt real AI call; fall back to mock on credential error
@@ -74,7 +74,11 @@ export async function POST(req: NextRequest) {
   let responseJson: unknown;
 
   try {
-    const prompt = buildCharacterRefinePrompt(ctx, characterId);
+    const prompt = buildCharacterRefinePrompt(
+      ctx,
+      characterId,
+      refinementPrompt,
+    );
     const { text } = await callWatsonx({ prompt });
 
     try {
@@ -88,7 +92,18 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof WatsonxCredentialError) {
       // Graceful fallback to deterministic mock
-      responseJson = MOCK_CHARACTER_REFINEMENT;
+      responseJson = {
+        characterId,
+        proposedDescription:
+          `${ctx.characterSummary} Creator-directed refinement: ${refinementPrompt}.`,
+        proposedGenerationInstruction:
+          `${refinementPrompt}. Preserve this approved character identity: ` +
+          `${ctx.characterSummary} Graphic-novel style, consistent proportions and palette.`,
+        changeRationale:
+          `Applied the creator's direction while preserving the supplied locked ` +
+          `character summary and ${ctx.canonFacts.length} canon fact(s).`,
+        requiresApproval: true,
+      };
     } else if (err instanceof WatsonxTimeoutError) {
       return NextResponse.json({ error: err.message }, { status: 408 });
     } else if (err instanceof WatsonxRateLimitError) {
