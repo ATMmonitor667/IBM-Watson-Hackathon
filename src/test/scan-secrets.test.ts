@@ -59,9 +59,9 @@ describe("catches the way THIS project would leak", () => {
     expect(reasons.join(" ")).toMatch(/assigned a non-placeholder value/i);
   });
 
-  it("a Supabase publishable key assigned in source", () => {
-    const value = "sbp" + "_0123456789abcdef0123456789abcdef";
-    const reasons = scan(`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "${value}"`);
+  it("a Supabase anon key assigned in source", () => {
+    const value = "anon" + "_0123456789abcdef0123456789abcdef";
+    const reasons = scan(`NEXT_PUBLIC_SUPABASE_ANON_KEY = "${value}"`);
     expect(reasons.join(" ")).toMatch(/assigned a non-placeholder value/i);
   });
 

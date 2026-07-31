@@ -79,6 +79,11 @@ credentials; Supabase and watsonx-backed features will require their correspondi
 For a live Supabase project, apply the repository migrations with `supabase db push`
 before starting the app.
 
+For live Supabase data, copy the project URL into `NEXT_PUBLIC_SUPABASE_URL` and the
+dashboard field **Project Settings > API > Project API keys > anon public** into
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Do not use the `service_role` key in either public
+variable; authorization remains enforced by Supabase Row Level Security.
+
 ## Commands
 
 ```bash
