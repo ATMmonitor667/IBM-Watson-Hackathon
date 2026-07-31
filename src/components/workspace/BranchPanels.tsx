@@ -7,9 +7,11 @@ import { useUiStore } from "@/store/uiStore";
 import type { Scene, Branch } from "@/types/workspace";
 import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
 import { AppImage } from "@/components/ui/AppImage";
-import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
+import { buildMergeContext, callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
 import { buildCanonContext } from "@/lib/ai/contextBuilder";
+import { AI_FALLBACK_LABEL } from "@/lib/ai/responsibleAI";
+import { useCharacterStore } from "@/store/characterStore";
 
 // ---------------------------------------------------------------------------
 // Focusable element selector (standard interactive elements)
@@ -547,44 +549,42 @@ export function MergePreviewPanel({
 }: MergePreviewPanelProps) {
   const closePanels    = useUiStore((s) => s.closePanels);
   const mergeBranchId  = useUiStore((s) => s.mergeBranchId);
+  const characters     = useCharacterStore((s) => s.characters);
 
   type Step = "idle" | "loading" | "preview" | "confirming" | "error";
   const [step, setStep]               = useState<Step>("idle");
   const [aiResult, setAiResult]       = useState<MergeAssistantResponse | null>(null);
+  const [isMock, setIsMock]           = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState<MergeStrategy | null>(null);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
 
   const branch = branches.find((b) => b.id === mergeBranchId);
 
-  // Build a minimal CanonContext from branches
-  function buildMergeCtx() {
-    const canonBranch = branches.find((b) => b.isCanon);
-    if (!branch || !canonBranch) return null;
-    return buildCanonContext(
-      {
-        name: branch.name,
-        isCanon: false,
-        scenes: branch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
-      },
-      {
-        name: canonBranch.name,
-        isCanon: true,
-        scenes: canonBranch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
-      },
-      branch.projectId,
-      "Kael — explorer, mid-30s, worn leather coat, glowing compass on his belt.",
-    );
+  /**
+   * The locked character sheet, when the author has locked one.
+   *
+   * Passing the wrong description is worse than passing none: the model treats
+   * whatever arrives here as canon. If nothing is locked, buildMergeContext
+   * says so and lists the cast canon actually establishes instead.
+   */
+  function lockedCharacterSummary(): string | undefined {
+    for (const character of characters) {
+      if (character.projectId !== branch?.projectId) continue;
+      const locked = character.versions.find((v) => v.id === character.lockedVersionId);
+      if (locked) return `${character.name} — ${locked.description}`;
+    }
+    return undefined;
   }
 
   async function handleGetPreview() {
-    const ctx = buildMergeCtx();
-    if (!ctx) return;
+    const canonBranch = branches.find((b) => b.isCanon);
+    if (!branch || !canonBranch) return;
+
+    // Facts are derived from each scene's propsUsed/characters inside
+    // buildMergeContext. Sending scene titles alone would ship canonFacts: []
+    // and branchFacts: [], and the assistant would have nothing to compare.
+    const ctx = buildMergeContext(branch, canonBranch, lockedCharacterSummary());
+
     setStep("loading");
     setErrorMsg(null);
     const result = await callMergeAssistant(ctx);
@@ -594,6 +594,7 @@ export function MergePreviewPanel({
       return;
     }
     setAiResult(result.data);
+    setIsMock(result.isMock);
     setSelectedStrategy(result.data.strategies[0] ?? null);
     setStep("preview");
   }
@@ -662,9 +663,39 @@ export function MergePreviewPanel({
           </>
         )}
 
-        {/* Step: preview */}
+        {/* ------------------------------------------------------------------
+            Step: preview
+
+            Everything below is a PROPOSAL (PRD §9.3): the assistant analyses,
+            the human decides. Nothing in this branch of the render mutates
+            branch or scene state — the only writer in this component is
+            handleConfirm, behind the button at the bottom of the panel.
+           ------------------------------------------------------------------ */}
         {(step === "preview" || step === "confirming") && aiResult && (
           <>
+            {/* Provenance. previewOnly is z.literal(true) in the schema, so a
+                response that got this far cannot have merged anything — say so
+                on screen rather than leaving a reader to assume it. The second
+                badge distinguishes a real model call from the deterministic
+                fallback; at HTTP 200 with no flag the two look identical. */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+                Proposal — not applied
+              </span>
+              {isMock ? (
+                <span
+                  className="rounded-full border border-slate-500/40 bg-slate-700/40 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+                  title="watsonx credentials are not configured, so this preview was computed deterministically from your scene data."
+                >
+                  {AI_FALLBACK_LABEL}
+                </span>
+              ) : (
+                <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+                  watsonx.ai · Granite
+                </span>
+              )}
+            </div>
+
             {/* Branch summary */}
             <div className="rounded-lg border border-white/10 bg-slate-800 p-3">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
@@ -675,12 +706,13 @@ export function MergePreviewPanel({
               </p>
             </div>
 
-            {/* Compatible changes */}
-            {aiResult.compatibleChanges.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                  Compatible Changes
-                </p>
+            {/* Compatible changes. Rendered even when empty: an absent section
+                reads as "not checked", which is a different claim. */}
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Compatible Changes ({aiResult.compatibleChanges.length})
+              </p>
+              {aiResult.compatibleChanges.length > 0 ? (
                 <ul className="flex flex-col gap-1">
                   {aiResult.compatibleChanges.map((c, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-300">
@@ -689,15 +721,19 @@ export function MergePreviewPanel({
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-slate-500">
+                  No changes were identified as integrating cleanly.
+                </p>
+              )}
+            </div>
 
             {/* True conflicts */}
-            {aiResult.trueConflicts.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                  Conflicts
-                </p>
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                True Conflicts ({aiResult.trueConflicts.length})
+              </p>
+              {aiResult.trueConflicts.length > 0 ? (
                 <ul className="flex flex-col gap-1">
                   {aiResult.trueConflicts.map((c, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-xs text-red-300">
@@ -706,60 +742,99 @@ export function MergePreviewPanel({
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-slate-500">
+                  No contradiction with canon was found. That is a check of the tracked
+                  facts, not a read of the prose.
+                </p>
+              )}
+            </div>
 
-            {/* Strategy selector */}
+            {/* Strategy selector — the human-in-the-loop step. Each option
+                carries its trade-offs, because a proposal a reviewer cannot
+                weigh is not a choice. */}
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Select Strategy
+                {aiResult.strategies.length} Proposed Strategies — you choose
               </p>
-              <div className="flex flex-col gap-2">
-                {aiResult.strategies.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSelectedStrategy(s)}
-                    className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 ${
-                      selectedStrategy?.id === s.id
-                        ? "border-violet-500/60 bg-violet-500/10 text-violet-200"
-                        : "border-white/10 bg-slate-800 text-slate-300 hover:border-white/20"
-                    }`}
-                  >
-                    <ChevronRight
-                      className={`mt-0.5 size-3.5 shrink-0 transition-transform ${
-                        selectedStrategy?.id === s.id ? "rotate-90 text-violet-400" : "text-slate-500"
+              <div
+                role="radiogroup"
+                aria-label="Merge strategies proposed by AI"
+                className="flex flex-col gap-2"
+              >
+                {aiResult.strategies.map((s) => {
+                  const isSelected = selectedStrategy?.id === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setSelectedStrategy(s)}
+                      className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 ${
+                        isSelected
+                          ? "border-violet-500/60 bg-violet-500/10 text-violet-200"
+                          : "border-white/10 bg-slate-800 text-slate-300 hover:border-white/20"
                       }`}
-                      aria-hidden="true"
-                    />
-                    <span>
-                      <span className="font-medium">{s.label}</span>
-                      <span className="ml-1 text-[11px] opacity-70">— {s.tradeoffs}</span>
-                    </span>
-                  </button>
-                ))}
+                    >
+                      <ChevronRight
+                        className={`mt-0.5 size-3.5 shrink-0 transition-transform ${
+                          isSelected ? "rotate-90 text-violet-400" : "text-slate-500"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="flex flex-col gap-1">
+                        <span className="font-medium">{s.label}</span>
+                        <span className="text-[11px] leading-relaxed opacity-80">
+                          {s.description}
+                        </span>
+                        <span className="text-[11px] leading-relaxed opacity-70">
+                          <span className="font-semibold uppercase tracking-wide">
+                            Trade-offs:
+                          </span>{" "}
+                          {s.tradeoffs}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wide opacity-60">
+                          {s.includedSceneIds.length > 0
+                            ? `Includes: ${s.includedSceneIds.join(", ")}`
+                            : "Includes no branch scenes"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <AiDisclaimer feature="mergeAssistant" />
 
-            {/* Confirm */}
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={closePanels}
-                className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={!selectedStrategy || step === "confirming"}
-                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {step === "confirming" ? "Merging…" : "Confirm merge"}
-              </button>
+            {/* Confirm — the one action in this panel that writes anything, and
+                it is the human's, not the model's. */}
+            <div className="flex flex-col gap-2 pt-1">
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                Selected:{" "}
+                <span className="font-medium text-slate-200">
+                  {selectedStrategy?.label ?? "none"}
+                </span>
+                . Confirming is the only step that changes your story.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closePanels}
+                  className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={!selectedStrategy || step === "confirming"}
+                  className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {step === "confirming" ? "Merging…" : "Confirm merge"}
+                </button>
+              </div>
             </div>
           </>
         )}

@@ -12,7 +12,7 @@
  * a merge — it only proposes strategies for human review.
  *
  * HTTP status codes:
- *   200 — valid response (real or mock)
+ *   200 — valid response (real or mock; see the X-Storyverse-AI-Source header)
  *   400 — request body failed CanonContextSchema validation
  *   408 — model request timed out
  *   429 — model rate-limited
@@ -24,7 +24,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { CanonContextSchema, MergeAssistantResponseSchema } from "@/lib/ai/schemas";
 import { callWatsonx } from "@/lib/ai/provider";
 import { buildMergeAssistantPrompt } from "@/lib/ai/prompts/mergeAssistantPrompt";
-import { MOCK_MERGE_ASSISTANT } from "@/lib/ai/mocks";
+import { mockMergeAssistantFor } from "@/lib/ai/mocks";
+import { AI_SOURCE_HEADER } from "@/lib/ai/mergeAssistantClient";
 import {
   WatsonxCredentialError,
   WatsonxMalformedResponseError,
@@ -60,6 +61,10 @@ export async function POST(req: NextRequest) {
   // 2. Attempt real AI call; fall back to mock on credential error
   // ------------------------------------------------------------------
   let responseJson: unknown;
+  // Which of the two produced the body. Returned as a response header so the
+  // UI can label a fallback as a fallback — at HTTP 200 with no flag, a missing
+  // credential and a working watsonx integration are indistinguishable.
+  let usedMock = false;
 
   try {
     const prompt = buildMergeAssistantPrompt(ctx);
@@ -75,8 +80,10 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     if (err instanceof WatsonxCredentialError) {
-      // Graceful fallback to deterministic mock
-      responseJson = MOCK_MERGE_ASSISTANT;
+      // Graceful fallback to the deterministic preview, computed from THIS
+      // request's context so it describes the branch the author clicked.
+      responseJson = mockMergeAssistantFor(ctx);
+      usedMock = true;
     } else if (err instanceof WatsonxTimeoutError) {
       return NextResponse.json({ error: err.message }, { status: 408 });
     } else if (err instanceof WatsonxRateLimitError) {
@@ -107,7 +114,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json(mergeResult.data, { status: 200 });
+  return NextResponse.json(mergeResult.data, {
+    status: 200,
+    headers: { [AI_SOURCE_HEADER]: usedMock ? "mock" : "watsonx" },
+  });
 }
 
 // Explicitly block non-POST methods

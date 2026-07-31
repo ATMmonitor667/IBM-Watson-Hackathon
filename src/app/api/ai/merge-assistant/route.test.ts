@@ -13,6 +13,9 @@
  *   6. Model returns non-JSON → 502
  *   7. Model returns JSON that fails MergeAssistantResponseSchema (previewOnly=false) → 502
  *   8. Real credentials present, model returns valid JSON → 200
+ *   9. Fallback describes the branch that was actually requested (not a
+ *      hardcoded one) and reports its real fact collisions
+ *  10. Provenance header says whether a model was called
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -314,5 +317,148 @@ describe("POST /api/ai/merge-assistant — successful real call", () => {
     const data = await res.json();
     expect(data.previewOnly).toBe(true);
     expect(data.strategies.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. The fallback must describe the branch that was actually requested
+// ---------------------------------------------------------------------------
+
+describe("POST /api/ai/merge-assistant — fallback is about the requested branch", () => {
+  /** The context the workspace actually sends: a branch with its own name. */
+  const TUNNEL_CONTEXT = {
+    ...VALID_CONTEXT,
+    branchName: "The Tunnel Route",
+    branchFacts: [
+      {
+        key: "prop:the-compass",
+        value: 'The Compass is in play in Scene 6 "The Hidden Tunnel"',
+        lockedInScene: 6,
+      },
+    ],
+    sceneHistory: [...VALID_CONTEXT.sceneHistory, "[branch] The Hidden Tunnel"],
+  };
+
+  it("echoes the requested branch name rather than a hardcoded one", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(TUNNEL_CONTEXT));
+    const data = await res.json();
+
+    // The bug: a panel headed "The Tunnel Route" describing
+    // "feature/save-the-stranger" and scenes that do not exist.
+    expect(data.branchName).toBe("The Tunnel Route");
+    expect(JSON.stringify(data)).not.toContain("feature/save-the-stranger");
+  });
+
+  it("names the branch's own added scenes", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(TUNNEL_CONTEXT));
+    const data = await res.json();
+
+    expect(JSON.stringify(data.compatibleChanges)).toContain("The Hidden Tunnel");
+  });
+
+  it("reports the fact collision between branch and canon as a true conflict", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(
+      makeRequest({
+        ...TUNNEL_CONTEXT,
+        canonFacts: [
+          {
+            key: "prop:the-compass",
+            value: 'The Compass is in play in Scene 1 "The Surface Breaks"',
+            lockedInScene: 1,
+          },
+        ],
+      }),
+    );
+    const data = await res.json();
+
+    expect(data.trueConflicts.length).toBeGreaterThanOrEqual(1);
+    expect(data.trueConflicts[0]).toContain("prop:the-compass");
+  });
+
+  it("labels itself as a non-model response in the summary", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(TUNNEL_CONTEXT));
+    const data = await res.json();
+
+    // Honest even if the provenance header is lost in transit.
+    expect(data.branchSummary).toMatch(/no model call/i);
+  });
+
+  it("gives every strategy a non-empty trade-off", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(TUNNEL_CONTEXT));
+    const data = await res.json();
+
+    for (const strategy of data.strategies) {
+      expect(strategy.tradeoffs.length).toBeGreaterThan(0);
+      expect(strategy.description.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. Provenance — a 200 must say whether a model was called
+// ---------------------------------------------------------------------------
+
+describe("POST /api/ai/merge-assistant — provenance header", () => {
+  it("marks the credential fallback as mock", async () => {
+    vi.stubEnv("AI_MOCK", "true");
+
+    const res = await POST(makeRequest(VALID_CONTEXT));
+    expect(res.headers.get("X-Storyverse-AI-Source")).toBe("mock");
+  });
+
+  it("marks a real model response as watsonx", async () => {
+    vi.stubEnv("AI_MOCK", "false");
+    vi.stubEnv("WATSONX_API_KEY", "key");
+    vi.stubEnv("WATSONX_PROJECT_ID", "proj");
+    vi.stubEnv("WATSONX_URL", "https://example.com");
+
+    const validResponse = {
+      branchName: "The Tunnel Route",
+      branchSummary: "Branch takes the aqueduct instead of the lighthouse.",
+      compatibleChanges: ["Adds The Hidden Tunnel"],
+      trueConflicts: [],
+      strategies: [
+        {
+          id: "accept-branch",
+          label: "Accept as written",
+          description: "Merge every branch scene unchanged.",
+          tradeoffs: "Fastest. No fact conflicts detected.",
+          includedSceneIds: ["The Hidden Tunnel"],
+        },
+        {
+          id: "scene-by-scene",
+          label: "Merge scene by scene",
+          description: "Bring scenes in one at a time.",
+          tradeoffs: "Cheaper to undo. Slower.",
+          includedSceneIds: ["The Hidden Tunnel"],
+        },
+      ],
+      previewOnly: true as const,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            results: [{ generated_text: JSON.stringify(validResponse) }],
+          }),
+          { status: 200 }
+        )
+      )
+    );
+
+    const res = await POST(makeRequest(VALID_CONTEXT));
+    expect(res.headers.get("X-Storyverse-AI-Source")).toBe("watsonx");
   });
 });
