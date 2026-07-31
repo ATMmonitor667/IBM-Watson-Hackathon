@@ -11,9 +11,15 @@ import type { Scene } from "@/types/workspace";
 // nothing actually detected. A test enforces this (continuityRules.test.ts,
 // "the demo data no longer carries written-out findings").
 //
-// The fields the engine reads are `characters` and `dialogueExcerpt`. Keep them
-// consistent with each other when editing a scene, or the engine will correctly
-// tell you that you did not.
+// The fields the engine reads are `characters`, `dialogueExcerpt`, `propsUsed`
+// and `propEvents`. Keep them consistent with each other when editing a scene,
+// or the engine will correctly tell you that you did not.
+//
+// `propEvents` is story data, not a finding: Scene 1 records that Kael comes up
+// holding the compass. Canon then carries the compass through every remaining
+// scene with Kael in it, so the possession rule runs over canon and stays
+// silent — the silence is earned, not assumed. The tunnel branch takes the
+// compass away (see demoBranches.ts) and the rule fires there.
 // ---------------------------------------------------------------------------
 
 export const DEMO_SCENES: Scene[] = [
@@ -28,6 +34,13 @@ export const DEMO_SCENES: Scene[] = [
     action: "Kael breaks the surface and watches the compass spin.",
     characters: ["Kael", "The Compass"],
     propsUsed: ["The Compass"],
+    propEvents: [
+      {
+        prop: "The Compass",
+        holder: "Kael",
+        note: "Kael breaks the surface with the compass on his belt.",
+      },
+    ],
     emotionalBeat: "Dread",
     reviewStatus: "Approved",
     continuityFlag: undefined,

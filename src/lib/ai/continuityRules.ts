@@ -1,4 +1,4 @@
-import type { Branch, Scene } from "@/types/workspace";
+import type { Branch, PropEvent, Scene } from "@/types/workspace";
 
 /**
  * THE CONTINUITY RULE ENGINE (workspace model) — issue #8 / D3.
@@ -25,21 +25,26 @@ import type { Branch, Scene } from "@/types/workspace";
  * is the one wired to the screen.
  * ---------------------------------------------------------------------------
  *
- * WHY THESE TWO RULES
+ * WHY THESE THREE RULES
  *
- * The workspace Scene has no `props` field. What it does have is
- * `characters: string[]` — which the demo data already uses for objects as well
- * as people ("The Compass" is a cast entry in Scene 1). So entity presence is
- * structural data, and two things become checkable without reading prose:
+ * Everything they read is structural. `characters: string[]` is the cast (the
+ * demo data uses it for objects as well as people — "The Compass" is a cast
+ * entry in Scene 1), `propsUsed: string[]` is what is physically in the scene,
+ * and `propEvents` is the canon bible's record of who ends up holding what. So
+ * three things become checkable without reading prose:
  *
  *   1. The cast list and the dialogue disagree about who or what is present.
  *   2. An entity appears on a timeline that never introduced it.
+ *   3. A scene uses a prop that, on this timeline, is not there to be used.
  *
- * Both cite concrete field values as evidence. A finding a reviewer cannot
+ * All three cite concrete field values as evidence. A finding a reviewer cannot
  * verify is an opinion (PRD §20).
  */
 
-export type ContinuityRuleId = "unlisted_entity" | "unestablished_on_branch";
+export type ContinuityRuleId =
+  | "unlisted_entity"
+  | "unestablished_on_branch"
+  | "prop_without_holder";
 
 export type ComputedSeverity = "high" | "medium" | "low";
 
@@ -263,6 +268,103 @@ function unestablishedOnBranch(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Rule 3 — a prop is used where nobody on this timeline can be holding it     */
+/* -------------------------------------------------------------------------- */
+
+/** Where a prop is, as of some point in a timeline. */
+interface Possession {
+  /** Who has it. `null` means it has left this timeline altogether. */
+  holder: string | null;
+  /** The scene that established this — cited as evidence. */
+  establishedIn: Scene;
+  event: PropEvent;
+}
+
+/**
+ * Walk the timeline in order, carrying prop possession forward, and flag any
+ * scene that uses a prop it cannot have.
+ *
+ * This is the rule that catches the demo's headline contradiction. It is
+ * checkable from fields alone: `propEvents` says who ended up with the prop,
+ * `propsUsed` says the prop is in this scene, and `characters` says who is
+ * here. Nothing is inferred from prose.
+ *
+ * Possession is evaluated as the state ENTERING a scene, then the scene's own
+ * events are applied. A scene in which the prop changes hands is therefore not
+ * in contradiction with itself.
+ *
+ * It runs over the LINEAGE, not the branch in isolation, which is the whole
+ * point: a branch inherits canon's possession state up to its divergence point
+ * and then diverges from it. Canon has the same rule applied to it and stays
+ * silent because canon never separates the compass from Kael — the silence is
+ * computed, not assumed.
+ */
+function propPossession(lineage: Scene[]): ComputedFinding[] {
+  const findings: ComputedFinding[] = [];
+  const held = new Map<string, Possession>();
+
+  for (const scene of lineage) {
+    for (const prop of scene.propsUsed ?? []) {
+      const current = held.get(prop);
+
+      // Never established on this timeline, so there is no possession claim to
+      // contradict. Props appearing for the first time is ordinary authoring.
+      if (!current) continue;
+
+      // The holder is in the scene, so the prop can be too.
+      if (current.holder && scene.characters.includes(current.holder)) continue;
+
+      const where = current.establishedIn;
+      const gone = current.holder === null;
+
+      findings.push({
+        id: `rule-prop-${scene.id}-${slug(prop)}`,
+        rule: "prop_without_holder",
+        severity: "high",
+        sceneId: scene.id,
+        entity: prop,
+        title: gone
+          ? `${prop} is used after it leaves this timeline`
+          : `${prop} is used while ${current.holder} is not in the scene`,
+        message: gone
+          ? `${scene.title} uses ${prop}, but on this timeline ` +
+            `"${where.title}" (Scene ${where.sceneNumber}) took it out of the ` +
+            `story. It is not there to be picked up.`
+          : `${scene.title} uses ${prop}, but as of "${where.title}" ` +
+            `(Scene ${where.sceneNumber}) ${current.holder} is holding it and ` +
+            `${current.holder} is not in this scene.`,
+        evidence: [
+          `${scene.title} — propsUsed: [${(scene.propsUsed ?? []).join(", ")}]`,
+          `"${current.event.note}" — established in "${where.title}" (Scene ${where.sceneNumber})`,
+          gone
+            ? `${where.title} left ${prop} with no holder on this timeline`
+            : `${scene.title} — characters: [${scene.characters.join(", ")}] — ${current.holder} is absent`,
+        ],
+        suggestedFix: gone
+          ? `Remove ${prop} from ${scene.title}'s props, or add a beat before ` +
+            `it where ${prop} is recovered.`
+          : `Remove ${prop} from ${scene.title}'s props, put ${current.holder} ` +
+            `in the scene, or add a beat where ${prop} changes hands again.`,
+      });
+
+      // Said once. Repeating it for every later scene buries the finding that
+      // actually needs a decision — same reasoning as rule 2.
+      held.delete(prop);
+    }
+
+    for (const event of scene.propEvents ?? []) {
+      held.set(event.prop, {
+        holder: event.holder,
+        establishedIn: scene,
+        event,
+      });
+    }
+  }
+
+  return findings;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Public API                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -287,6 +389,10 @@ export function reviewBranch(
   const findings = [
     ...unlistedEntities(branch.isCanon ? lineage : own, vocabulary),
     ...unestablishedOnBranch(branch, branches),
+    // Rule 3 needs the inherited history to know where a prop started, but a
+    // finding it raises on an inherited canon scene belongs to canon's review,
+    // not this branch's — the filter below drops those.
+    ...propPossession(lineage),
   ].filter((f) => ownIds.has(f.sceneId) || branch.isCanon);
 
   const rank: Record<ComputedSeverity, number> = { high: 0, medium: 1, low: 2 };

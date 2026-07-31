@@ -16,6 +16,16 @@ const ALT_SCENES_A: Scene[] = [
     action: "Kael abandons the lighthouse route and leads Mira into the aqueduct.",
     characters: ["Kael", "Mira"],
     propsUsed: ["The Compass", "Aqueduct map"],
+    // Story data, not a finding: on this timeline the compass goes into the
+    // water here. The NEXT branch scene still lists it in `propsUsed`, and the
+    // continuity engine is what notices — see continuityRules.ts, rule 3.
+    propEvents: [
+      {
+        prop: "The Compass",
+        holder: null,
+        note: "The compass slips off Kael's belt and is taken by the aqueduct current.",
+      },
+    ],
     emotionalBeat: "Hope",
     reviewStatus: "Under Review",
     continuityFlag: undefined,

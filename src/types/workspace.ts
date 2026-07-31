@@ -15,6 +15,27 @@ export interface SceneContributor {
   avatarUrl?: string;
 }
 
+/**
+ * A change of possession for a prop, authored as STORY DATA.
+ *
+ * This is a canon-bible row, not a finding: it records what the story says
+ * happened to an object, in the scene where it happened. The continuity engine
+ * (src/lib/ai/continuityRules.ts) walks these in timeline order and computes
+ * whether a later scene can still use the prop. Writing the *finding* here
+ * instead would be the hardcoding that issue #8 exists to remove.
+ */
+export interface PropEvent {
+  /** The prop, spelled exactly as it appears in `propsUsed`. */
+  prop: string;
+  /**
+   * Who is holding it once this scene is over. `null` means it has left this
+   * timeline entirely — dropped, destroyed, lost.
+   */
+  holder: string | null;
+  /** The authored beat this is drawn from. Quoted verbatim as evidence. */
+  note: string;
+}
+
 export interface Scene {
   id: string;
   projectId: string;
@@ -31,6 +52,12 @@ export interface Scene {
   characters: string[];
   /** Structured props present in the scene. */
   propsUsed?: string[];
+  /**
+   * Possession changes this scene establishes. Read by the continuity engine
+   * to track where a prop is; a scene that uses a prop whose holder is not
+   * present produces a computed finding.
+   */
+  propEvents?: PropEvent[];
   /** Emotional beat label, e.g. "Tension", "Hope", "Loss" */
   emotionalBeat: string;
   /** Card review/approval status */

@@ -167,6 +167,158 @@ describe("rule 2 — an entity appears on a timeline that never introduced it", 
   });
 });
 
+describe("rule 3 — prop possession across a timeline", () => {
+  /**
+   * The acceptance criterion for issue #8, stated twice: the engine PRODUCES
+   * the compass contradiction on the branch, and produces nothing on canon.
+   * Neither assertion is against a stub — both call reviewBranch over the real
+   * demo fixtures, which contain no written-out findings at all.
+   */
+
+  it("FIRES ON THE BRANCH: the tunnel route uses the compass after losing it", () => {
+    const findings = reviewBranch(TUNNEL, DEMO_BRANCHES).filter(
+      (f) => f.rule === "prop_without_holder",
+    );
+
+    expect(findings).toHaveLength(1);
+    const [finding] = findings;
+
+    expect(finding.sceneId).toBe("scene-alt-2b");
+    expect(finding.entity).toBe("The Compass");
+    expect(finding.severity).toBe("high");
+    // The engine names the scene that took the prop away, not a generic warning.
+    expect(finding.message).toContain("The Hidden Tunnel");
+  });
+
+  it("IS SILENT ON CANON: canon never separates the compass from Kael", () => {
+    const findings = reviewBranch(CANON, DEMO_BRANCHES).filter(
+      (f) => f.rule === "prop_without_holder",
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("the silence on canon is earned — canon really does carry the compass", () => {
+    // If this drifts, the "silent on canon" assertion above becomes vacuous:
+    // it would pass because the rule never had anything to evaluate.
+    const carrying = CANON.scenes.filter(
+      (s) => (s.propsUsed ?? []).includes("The Compass") && s.characters.includes("Kael"),
+    );
+    expect(carrying.length).toBe(CANON.scenes.length);
+
+    const establishes = CANON.scenes.flatMap((s) => s.propEvents ?? []);
+    expect(establishes).toContainEqual(
+      expect.objectContaining({ prop: "The Compass", holder: "Kael" }),
+    );
+  });
+
+  it("cites the propsUsed list and the authored beat as evidence", () => {
+    const [finding] = reviewBranch(TUNNEL, DEMO_BRANCHES).filter(
+      (f) => f.rule === "prop_without_holder",
+    );
+
+    const evidence = finding.evidence.join(" ");
+    expect(evidence).toContain("propsUsed: [The Compass, Engine controls]");
+    expect(evidence).toContain("aqueduct current");
+    expect(finding.suggestedFix).toContain("The Compass");
+  });
+
+  it("does not flag the scene where the prop actually changes hands", () => {
+    // The Hidden Tunnel both uses the compass and loses it. Possession is read
+    // as the state entering the scene, so the scene is not at odds with itself.
+    const flagged = reviewBranch(TUNNEL, DEMO_BRANCHES)
+      .filter((f) => f.rule === "prop_without_holder")
+      .map((f) => f.sceneId);
+    expect(flagged).not.toContain("scene-alt-2a");
+  });
+
+  it("flags a prop whose holder is simply absent, not only a lost one", () => {
+    // The other half of possession tracking: the prop still exists, but the
+    // person carrying it is not in the scene.
+    const [first, second] = TUNNEL.scenes;
+    const branch: Branch = {
+      ...TUNNEL,
+      scenes: [
+        {
+          ...first,
+          propEvents: [
+            {
+              prop: "The Compass",
+              holder: "The Ferryman",
+              note: "Kael presses the compass into the Ferryman's hands as payment.",
+            },
+          ],
+        },
+        second,
+      ],
+    };
+    const branches = DEMO_BRANCHES.map((b) => (b.id === TUNNEL.id ? branch : b));
+
+    const [finding] = reviewBranch(branch, branches).filter(
+      (f) => f.rule === "prop_without_holder",
+    );
+
+    expect(finding.sceneId).toBe("scene-alt-2b");
+    expect(finding.message).toContain("The Ferryman");
+    expect(finding.evidence.join(" ")).toContain("The Ferryman is absent");
+  });
+
+  it("says nothing when the holder is in the scene", () => {
+    const [first, second] = TUNNEL.scenes;
+    const branch: Branch = {
+      ...TUNNEL,
+      scenes: [
+        {
+          ...first,
+          propEvents: [
+            {
+              prop: "The Compass",
+              holder: "Mira",
+              note: "Kael hands Mira the compass at the tunnel mouth.",
+            },
+          ],
+        },
+        second, // Mira is in the engine room, so the compass can be too.
+      ],
+    };
+    const branches = DEMO_BRANCHES.map((b) => (b.id === TUNNEL.id ? branch : b));
+
+    expect(
+      reviewBranch(branch, branches).filter((f) => f.rule === "prop_without_holder"),
+    ).toEqual([]);
+  });
+
+  it("reports a broken prop once, not in every scene after it", () => {
+    const [, second] = TUNNEL.scenes;
+    const third: Scene = {
+      ...second,
+      id: "scene-alt-2c",
+      sceneNumber: 8,
+      title: "Still Carrying It",
+      order: 3,
+      parentId: "scene-alt-2b",
+      characters: ["Kael", "Mira"],
+    };
+    const branch: Branch = { ...TUNNEL, scenes: [...TUNNEL.scenes, third] };
+    const branches = DEMO_BRANCHES.map((b) => (b.id === TUNNEL.id ? branch : b));
+
+    const compass = reviewBranch(branch, branches).filter(
+      (f) => f.rule === "prop_without_holder",
+    );
+    expect(compass).toHaveLength(1);
+    expect(compass[0].sceneId).toBe("scene-alt-2b");
+  });
+
+  it("ignores a prop the timeline never made a possession claim about", () => {
+    // "Engine controls" has no propEvent anywhere. Props appearing for the
+    // first time is ordinary authoring, not a contradiction.
+    const entities = reviewBranch(TUNNEL, DEMO_BRANCHES)
+      .filter((f) => f.rule === "prop_without_holder")
+      .map((f) => f.entity);
+    expect(entities).not.toContain("Engine controls");
+    expect(entities).not.toContain("Aqueduct map");
+  });
+});
+
 describe("ordering and output shape", () => {
   it("puts the most severe finding first", () => {
     const findings = reviewBranch(TUNNEL, DEMO_BRANCHES);
@@ -177,7 +329,10 @@ describe("ordering and output shape", () => {
     const a = reviewBranch(TUNNEL, DEMO_BRANCHES).map((f) => f.id);
     const b = reviewBranch(TUNNEL, DEMO_BRANCHES).map((f) => f.id);
     expect(a).toEqual(b);
-    expect(a).toEqual(["rule-unestablished-scene-alt-2b-the-archivist"]);
+    expect(a).toEqual([
+      "rule-unestablished-scene-alt-2b-the-archivist",
+      "rule-prop-scene-alt-2b-the-compass",
+    ]);
   });
 
   it("collects the project's entity vocabulary from both timelines", () => {
