@@ -327,7 +327,6 @@ export async function insertBranch(
   const { data, error } = await client
     .from("branches")
     .insert({
-      id: branch.id,
       project_id: branch.projectId,
       name: branch.name,
       source_scene_id: branch.sourceSceneId || null,

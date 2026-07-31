@@ -3,17 +3,24 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectPageClient } from "@/components/workspace/ProjectPageClient";
+import { useActivityStore } from "@/store/activityStore";
 import { useProjectStore } from "@/store/projectStore";
 import { useUiStore } from "@/store/uiStore";
 import type { Branch, Project, Scene } from "@/types/workspace";
 
-const { fetchBranches, fetchScenes, fetchSceneRevisions, reviseScene } =
-  vi.hoisted(() => ({
+const {
+  fetchBranches,
+  fetchScenes,
+  fetchSceneRevisions,
+  reviseScene,
+  insertBranch,
+} = vi.hoisted(() => ({
   fetchBranches: vi.fn(),
   fetchScenes: vi.fn(),
   fetchSceneRevisions: vi.fn(),
   reviseScene: vi.fn(),
-  }));
+  insertBranch: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ source: "test-client" }),
@@ -24,6 +31,7 @@ vi.mock("@/lib/supabase/db", () => ({
   fetchScenes,
   fetchSceneRevisions,
   reviseScene,
+  insertBranch,
 }));
 
 vi.mock("@/components/workspace/BranchTree", () => ({
@@ -87,7 +95,29 @@ vi.mock("@/components/workspace/BranchPanels", () => ({
       </button>
     ) : null;
   },
-  CreateBranchPanel: () => null,
+  CreateBranchPanel: ({
+    onBranchCreated,
+  }: {
+    onBranchCreated: (branch: Branch) => Promise<Branch>;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        void onBranchCreated({
+          id: "branch-local-test",
+          projectId: project.id,
+          name: "Local Candidate",
+          sourceSceneId: scene.id,
+          scenes: [],
+          isCanon: false,
+          createdAt: "2026-07-30T13:59:00.000Z",
+          updatedAt: "2026-07-30T13:59:00.000Z",
+        }).catch(() => undefined)
+      }
+    >
+      Create test branch
+    </button>
+  ),
   CreateScenePanel: () => null,
   MergePreviewPanel: ({
     onMergeBranch,
@@ -163,6 +193,17 @@ const alternateBranch: Branch = {
   isCanon: false,
 };
 
+const savedBranch: Branch = {
+  id: "1d3b8919-d03e-42cc-bc54-252820ad2782",
+  projectId: project.id,
+  name: "Saved Database Branch",
+  sourceSceneId: scene.id,
+  scenes: [],
+  isCanon: false,
+  createdAt: "2026-07-30T14:00:00.000Z",
+  updatedAt: "2026-07-30T14:00:00.000Z",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   fetchBranches.mockResolvedValue([branch]);
@@ -173,6 +214,7 @@ beforeEach(() => {
     title: "Edited Branch Scene",
     revision: 2,
   });
+  insertBranch.mockResolvedValue(savedBranch);
   useProjectStore.setState({
     projects: [project],
     isLoading: false,
@@ -185,6 +227,7 @@ beforeEach(() => {
     openPanelId: null,
     mergeBranchId: null,
   });
+  useActivityStore.setState({ entries: [] });
 });
 
 describe("ProjectPageClient workspace loading", () => {
@@ -236,6 +279,81 @@ describe("ProjectPageClient workspace loading", () => {
     expect(screen.getByTestId("scene-canvas")).not.toBeEmptyDOMElement();
     expect(fetchBranches).not.toHaveBeenCalled();
     expect(fetchScenes).not.toHaveBeenCalled();
+  });
+
+  it("adds the Supabase-saved branch and activity after live creation", async () => {
+    const user = userEvent.setup();
+    useUiStore.setState({ openPanelId: "create-branch" });
+
+    render(<ProjectPageClient id={project.id} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create test branch" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("branch-tree")).toHaveTextContent(
+        "Saved Database Branch",
+      );
+    });
+    expect(screen.getByTestId("branch-tree")).not.toHaveTextContent(
+      "Local Candidate",
+    );
+    expect(insertBranch).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "test-client" }),
+      expect.objectContaining({ name: "Local Candidate" }),
+    );
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(
+      'Branch "Saved Database Branch" created',
+    );
+  });
+
+  it("does not mutate branch or activity state when live creation fails", async () => {
+    const user = userEvent.setup();
+    insertBranch.mockRejectedValue(new Error("branch insert denied"));
+    useUiStore.setState({ openPanelId: "create-branch" });
+
+    render(<ProjectPageClient id={project.id} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create test branch" }),
+    );
+
+    await waitFor(() => {
+      expect(insertBranch).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("branch-tree")).not.toHaveTextContent(
+      "Local Candidate",
+    );
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(
+      "No recent activity",
+    );
+  });
+
+  it("creates a local branch without Supabase in demo mode", async () => {
+    const user = userEvent.setup();
+    useProjectStore.setState({
+      projects: [{ ...project, id: "demo-1", title: "Demo Project" }],
+      dataSource: "mock",
+      mockReason: "no-credentials",
+    });
+    useUiStore.setState({ openPanelId: "create-branch" });
+
+    render(<ProjectPageClient id="demo-1" />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Create test branch" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("branch-tree")).toHaveTextContent(
+        "Local Candidate",
+      );
+    });
+    expect(insertBranch).not.toHaveBeenCalled();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(
+      'Branch "Local Candidate" created',
+    );
   });
 
   it("applies only selected branch scenes to canon", async () => {
