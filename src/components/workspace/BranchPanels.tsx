@@ -703,12 +703,14 @@ export function SceneDetailPanel({
 // ---------------------------------------------------------------------------
 interface CreateBranchPanelProps {
   scenes: Scene[];
-  onBranchCreated: (branch: Branch) => void;
+  onBranchCreated: (branch: Branch) => Promise<Branch>;
 }
 
 export function CreateBranchPanel({ scenes, onBranchCreated }: CreateBranchPanelProps) {
   const closePanels     = useUiStore((s) => s.closePanels);
   const selectedSceneId = useSceneStore((s) => s.selectedSceneId);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const baseScene = scenes.find((s) => s.id === selectedSceneId);
 
@@ -722,28 +724,37 @@ export function CreateBranchPanel({ scenes, onBranchCreated }: CreateBranchPanel
 
     if (!name || !baseScene) return;
 
-    // TODO: replace with real API call once Rahat's branch API is ready
-    await new Promise((r) => setTimeout(r, 400));
-
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const now = new Date().toISOString();
     const newBranch: Branch = {
-      id: `branch-${Date.now()}`,
+      id: `branch-local-${Date.now()}`,
       projectId: baseScene.projectId,
       name,
       sourceSceneId: baseScene.id,
       scenes: [],
       isCanon: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
 
-    onBranchCreated(newBranch);
-    closePanels();
+    try {
+      const savedBranch = await onBranchCreated(newBranch);
+      closePanels();
 
-    // Sonner toast — imported dynamically to avoid SSR issues
-    const { toast } = await import("sonner");
-    toast.success(`Branch "${name}" created`, {
-      description: `Branching from Scene #${baseScene.sceneNumber}: ${baseScene.title}`,
-    });
+      const { toast } = await import("sonner");
+      toast.success(`Branch "${savedBranch.name}" created`, {
+        description: `Branching from Scene #${baseScene.sceneNumber}: ${baseScene.title}`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create branch";
+      setSubmitError(message);
+      const { toast } = await import("sonner");
+      toast.error("Branch was not created", { description: message });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (!baseScene) return null;
@@ -797,20 +808,31 @@ export function CreateBranchPanel({ scenes, onBranchCreated }: CreateBranchPanel
           />
         </div>
 
+        {submitError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+          >
+            {submitError}
+          </p>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 pt-1">
           <button
             type="button"
             onClick={closePanels}
-            className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+            disabled={isSubmitting}
+            className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-violet-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+            disabled={isSubmitting}
+            className="flex-1 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-violet-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Create
+            {isSubmitting ? "Creating…" : "Create"}
           </button>
         </div>
       </form>

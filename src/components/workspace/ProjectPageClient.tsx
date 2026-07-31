@@ -62,11 +62,33 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
   const activityEntries = useActivityStore((s) => s.entries);
 
   const handleBranchCreated = useCallback(
-    (branch: Branch) => {
-      setBranches((prev) => [...prev, branch]);
-      addActivity({ message: `Branch "${branch.name}" created`, type: "branch" });
+    async (branch: Branch): Promise<Branch> => {
+      let savedBranch = branch;
+
+      if (dataSource === "supabase") {
+        try {
+          const [{ createClient }, { insertBranch }] = await Promise.all([
+            import("@/lib/supabase/client"),
+            import("@/lib/supabase/db"),
+          ]);
+          savedBranch = await insertBranch(createClient(), branch);
+        } catch (saveError) {
+          const message =
+            saveError instanceof Error
+              ? saveError.message
+              : "Failed to save branch";
+          throw new Error(`Branch could not be saved: ${message}`);
+        }
+      }
+
+      setBranches((prev) => [...prev, savedBranch]);
+      addActivity({
+        message: `Branch "${savedBranch.name}" created`,
+        type: "branch",
+      });
+      return savedBranch;
     },
-    [addActivity],
+    [addActivity, dataSource],
   );
 
   const handleSceneCreated = useCallback(
