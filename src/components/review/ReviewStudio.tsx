@@ -27,7 +27,16 @@ export function ReviewStudio({ projectId }: ReviewStudioProps) {
     altBranches[0]?.id,
   );
 
-  const { review, isLoading, runContinuityReview, reset } = useReviewStore();
+  const {
+    review,
+    isLoading,
+    isNarrativeLoading,
+    error,
+    decisions,
+    decideFinding,
+    runContinuityReview,
+    reset,
+  } = useReviewStore();
 
   useEffect(() => {
     if (selectedBranchId) {
@@ -97,23 +106,26 @@ export function ReviewStudio({ projectId }: ReviewStudioProps) {
               )}
             </div>
 
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                AI continuity findings
-              </p>
-              {isLoading ? (
-                <div className="flex flex-col gap-2">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-24 animate-pulse rounded-lg bg-slate-800" />
-                  ))}
-                </div>
-              ) : (
-                <ContinuityReviewPanel
-                  findings={review?.findings ?? []}
-                  sceneTitleById={sceneTitleById}
-                />
-              )}
-            </div>
+            {/* The canon review — the surface this whole screen exists for.
+                Its own loading/empty/error handling lives in the panel, which
+                is the only place that can tell "clean" from "not checked". */}
+            <section aria-labelledby="canon-review-heading">
+              <h2
+                id="canon-review-heading"
+                className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500"
+              >
+                Canon review
+              </h2>
+              <ContinuityReviewPanel
+                review={review}
+                isLoading={isLoading}
+                isNarrativeLoading={isNarrativeLoading}
+                error={error}
+                sceneTitleById={sceneTitleById}
+                decisions={decisions}
+                onDecide={decideFinding}
+              />
+            </section>
           </section>
 
           {/* Right: merge selection */}
@@ -123,14 +135,27 @@ export function ReviewStudio({ projectId }: ReviewStudioProps) {
             </p>
             {isLoading ? (
               <div className="h-64 animate-pulse rounded-lg bg-slate-800" />
-            ) : review && selectedBranch ? (
+            ) : error ? (
+              <p className="text-xs text-slate-500">
+                Merge options need a completed canon review.
+              </p>
+            ) : review && selectedBranch && review.strategies.length > 0 ? (
               <MergeSelectionPanel
                 strategies={review.strategies}
                 branchScenes={selectedBranch.scenes}
               />
+            ) : review && selectedBranch ? (
+              /* A real review with no strategies. The rule engine finds
+                 contradictions; proposing what to do about them is the merge
+                 assistant's job (issue #25 / D5) and it has not run here. */
+              <p className="text-xs text-slate-500">
+                No merge strategies have been proposed for this branch yet. The
+                canon review above is complete — strategies come from the merge
+                assistant, which has not been run.
+              </p>
             ) : (
               <p className="text-xs text-slate-500">
-                No AI review available for this branch yet.
+                Run a canon review to see merge options.
               </p>
             )}
           </section>

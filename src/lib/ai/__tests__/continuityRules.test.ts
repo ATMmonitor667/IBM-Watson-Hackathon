@@ -386,7 +386,9 @@ describe("the branch review is fed by the engine", () => {
 
   it("carries the engine's evidence through to the reviewer", () => {
     const [finding] = DEMO_BRANCH_REVIEW.findings;
-    expect(finding.evidence).toContain("Below the Archive");
+    // Evidence is a list now (issue #12 / D4) — the review surface renders one
+    // citation per line so a reviewer can check them one at a time.
+    expect(finding.evidence.join(" ")).toContain("Below the Archive");
     expect(finding.explanation).toContain("The Archivist");
     expect(finding.suggestedFix).not.toBe("");
   });

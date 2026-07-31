@@ -419,6 +419,7 @@ describe("buildCanonContext — carries the rule engine's findings", () => {
           title: "orphan",
           message: "orphan",
           evidence: [],
+          brokenFact: { statement: "orphan" },
           suggestedFix: "",
         },
       ]

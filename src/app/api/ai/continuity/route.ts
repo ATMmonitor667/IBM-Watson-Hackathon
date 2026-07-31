@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CanonContextSchema, ContinuityReviewResponseSchema } from "@/lib/ai/schemas";
 import { callWatsonx } from "@/lib/ai/provider";
 import { buildContinuityPrompt } from "@/lib/ai/prompts/continuityPrompt";
-import { MOCK_CONTINUITY_REVIEW } from "@/lib/ai/mocks";
+import { mockContinuityReviewFor } from "@/lib/ai/mocks";
 import {
   WatsonxCredentialError,
   WatsonxMalformedResponseError,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof WatsonxCredentialError) {
       // Graceful fallback to deterministic mock
-      reviewJson = MOCK_CONTINUITY_REVIEW;
+      reviewJson = mockContinuityReviewFor(ctx);
     } else if (err instanceof WatsonxTimeoutError) {
       return NextResponse.json({ error: err.message }, { status: 408 });
     } else if (err instanceof WatsonxRateLimitError) {

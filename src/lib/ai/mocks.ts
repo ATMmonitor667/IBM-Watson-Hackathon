@@ -7,47 +7,124 @@
  */
 
 import type {
+  CanonContext,
+  ContinuityFinding,
   ContinuityReviewResponse,
   MergeAssistantResponse,
   CharacterRefinementResponse,
+  Severity,
 } from "./schemas";
+import { findContradictions } from "./contextBuilder";
 
 // ---------------------------------------------------------------------------
-// Continuity review — catches the compass contradiction deterministically
+// Continuity review — derived from the request, never from a script
+//
+// This used to be a constant that named a branch ("feature/save-the-stranger")
+// and scenes that do not exist in the demo data, and the route returned it
+// verbatim. On stage that meant a panel headed "The Tunnel Route" could describe
+// a different branch entirely — the mock contradicting the screen it was
+// rendered on. Audit finding H2.
+//
+// It is now a function of the request, so the fallback can only ever talk about
+// what it was actually asked about:
+//
+//   • `ctx.ruleFindings` present  → echo the contradictions the deterministic
+//     rule engine already computed (issue #8 / D3), with their evidence.
+//   • `ctx.ruleFindings` absent   → derive contradictions from the canon/branch
+//     fact collision in the request itself (findContradictions).
+//   • neither yields anything     → an honest clean review with no findings.
+//
+// The distinction between "the engine ran and found nothing" (`[]`) and "no
+// engine ran" (`undefined`) is load-bearing: collapsing them is how a demo ends
+// up asserting a contradiction in a branch that does not have one.
 // ---------------------------------------------------------------------------
 
-export const MOCK_CONTINUITY_REVIEW: ContinuityReviewResponse = {
-  branchName: "feature/save-the-stranger",
-  reviewedAt: "2026-07-24T12:00:00.000Z",
-  findings: [
-    {
-      severity: "critical",
-      title: "Impossible object use after disposal — compass",
-      canonEvidence:
-        "Scene 4 'Below the Archive': Kael gives the glowing compass to The Ferryman " +
-        "as payment for crossing the archive gate. Canon fact key=compass_state locked " +
-        "at scene 4 with value 'lost in Scene 4 – given to The Ferryman'.",
-      affectedScene: 5,
-      explanation:
-        "Scene 5 in this branch ('The Choice at the Gate – Stranger Saved') shows Kael " +
-        "pulling out the glowing compass to navigate the flood gate controls. This directly " +
-        "contradicts the canon fact established in Scene 4 where the compass was given away " +
-        "and is no longer in Kael's possession.",
-      suggestedFix:
-        "Option A: Remove the compass from Scene 5 — have Kael use memory or another " +
-        "mechanism to navigate the gate. " +
-        "Option B: Add a short beat in the branch where The Ferryman returns the compass " +
-        "with a reason (e.g., 'You'll need this more than I will'). " +
-        "Option C: Replace the compass with a different navigational object that was not " +
-        "established as lost.",
-    },
-  ],
-  summary:
-    "1 critical continuity error detected. The compass is used in Scene 5 of this branch " +
-    "after being irrevocably given away in Scene 4 (canon). This must be resolved before " +
-    "merging into the canon timeline.",
-  requiresHumanReview: true,
+/** Fixed so the mock stays deterministic across runs and snapshots. */
+const MOCK_REVIEWED_AT = "2026-07-24T12:00:00.000Z";
+
+/** Engine severities -> the response contract's severities. */
+const SEVERITY_MAP: Record<string, Severity> = {
+  high: "critical",
+  medium: "major",
+  low: "minor",
 };
+
+/**
+ * The deterministic continuity response for a given request.
+ *
+ * Nothing here is written prose about the story. Where the model would explain
+ * a contradiction, this says plainly that the engine found it and the model was
+ * not called — which is the truth in mock mode, and is what the review surface
+ * labels as "computed, not explained".
+ */
+export function mockContinuityReviewFor(
+  ctx: CanonContext,
+): ContinuityReviewResponse {
+  const findings = ctx.ruleFindings
+    ? ctx.ruleFindings.map(fromRuleFinding)
+    : findContradictions(ctx).map(fromFactCollision);
+
+  return {
+    branchName: ctx.branchName,
+    reviewedAt: MOCK_REVIEWED_AT,
+    findings,
+    summary:
+      findings.length === 0
+        ? `No contradictions detected on branch "${ctx.branchName}". ` +
+          `This is the deterministic fallback — the language model was not called.`
+        : `${findings.length} contradiction${findings.length === 1 ? "" : "s"} ` +
+          `detected on branch "${ctx.branchName}" from the supplied scene data. ` +
+          `This is the deterministic fallback — the language model was not ` +
+          `called, so these are statements of what was computed rather than ` +
+          `written explanations.`,
+    requiresHumanReview: findings.length > 0,
+  };
+}
+
+/** A contradiction the rule engine already computed, restated in the contract. */
+function fromRuleFinding(
+  finding: NonNullable<CanonContext["ruleFindings"]>[number],
+): ContinuityFinding {
+  return {
+    severity: SEVERITY_MAP[finding.severity] ?? "major",
+    title: finding.title,
+    canonEvidence:
+      finding.evidence.length > 0
+        ? finding.evidence.join(" · ")
+        : `rule ${finding.rule} fired on scene ${finding.affectedScene}`,
+    affectedScene: finding.affectedScene,
+    explanation:
+      `Detected deterministically by rule "${finding.rule}" from the scene ` +
+      `fields cited above. The language model was not called, so this is the ` +
+      `engine's own statement and not a written explanation.`,
+    suggestedFix:
+      `Reconcile the cited fields in scene ${finding.affectedScene}, or revise ` +
+      `the canon fact they contradict. Nothing has been applied.`,
+  };
+}
+
+/** A canon/branch fact collision found in the request itself. */
+function fromFactCollision(
+  contradiction: ReturnType<typeof findContradictions>[number],
+): ContinuityFinding {
+  return {
+    severity: "critical",
+    title: `Branch fact contradicts canon — ${contradiction.key}`,
+    canonEvidence:
+      `canon fact ${contradiction.key} = "${contradiction.canonValue}" ` +
+      `(locked in scene ${contradiction.canonLockedInScene})`,
+    affectedScene: contradiction.branchLockedInScene,
+    explanation:
+      `Scene ${contradiction.branchLockedInScene} sets ${contradiction.key} to ` +
+      `"${contradiction.branchValue}", but canon locked it to ` +
+      `"${contradiction.canonValue}" in scene ${contradiction.canonLockedInScene}. ` +
+      `A branch may not silently overwrite a canon fact.`,
+    suggestedFix:
+      `Either change scene ${contradiction.branchLockedInScene} so it leaves ` +
+      `${contradiction.key} as canon has it, or raise the change against canon ` +
+      `explicitly so it is reviewed rather than absorbed.`,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Merge assistant — two strategies for the compass conflict

@@ -48,6 +48,31 @@ export type ContinuityRuleId =
 
 export type ComputedSeverity = "high" | "medium" | "low";
 
+/** Where a fact was established, so a reviewer can go and look at it. */
+export interface FactSource {
+  sceneId: string;
+  sceneNumber: number;
+  title: string;
+}
+
+/**
+ * THE CANON FACT A FINDING CONTRADICTS (issue #12 / D4).
+ *
+ * A finding that only says "this is wrong" leaves the reviewer to reconstruct
+ * why. Each rule already knows the standing claim it measured the scene
+ * against — the cast list, the introduction point, the possession event — so it
+ * says so, in terms the reviewer can check against the scene.
+ *
+ * `statement` is assembled from field values only. Nothing in it is prose the
+ * engine invented, which is what lets the review surface present it as fact
+ * rather than as a model's opinion.
+ */
+export interface BrokenFact {
+  statement: string;
+  /** The scene that put the fact on the record, when there is one. */
+  establishedIn?: FactSource;
+}
+
 export interface ComputedFinding {
   /** Deterministic — the same input always produces the same id. */
   id: string;
@@ -62,7 +87,14 @@ export interface ComputedFinding {
   message: string;
   /** Concrete field values, quoted. Never prose the engine invented. */
   evidence: string[];
+  /** The standing claim this scene contradicts. */
+  brokenFact: BrokenFact;
   suggestedFix: string;
+}
+
+/** A scene reduced to the fields a citation needs. */
+function sourceOf(scene: Scene): FactSource {
+  return { sceneId: scene.id, sceneNumber: scene.sceneNumber, title: scene.title };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -180,6 +212,15 @@ function unlistedEntities(scenes: Scene[], vocabulary: string[]): ComputedFindin
           `dialogueExcerpt: "${scene.dialogueExcerpt}"`,
           `characters: [${scene.characters.join(", ")}] — ${entity} is absent`,
         ],
+        // The contradicted claim is the scene's own cast list: it is the
+        // project's record of who and what is present, and it says otherwise.
+        brokenFact: {
+          statement:
+            `"${scene.title}" records its cast as [${scene.characters.join(", ")}]. ` +
+            `The cast list is the record of who and what is present in a scene, ` +
+            `and ${entity} is not on it.`,
+          establishedIn: sourceOf(scene),
+        },
         suggestedFix:
           `Add ${entity} to this scene's characters, or rewrite the line so the ` +
           `scene no longer depends on it being present.`,
@@ -252,6 +293,18 @@ function unestablishedOnBranch(
             ? `canon introduces ${entity} in "${canonDebut.title}" (Scene ${canonDebut.sceneNumber})`
             : `${entity} does not appear in canon at all`,
         ],
+        // The contradicted claim is where canon introduces the entity. A branch
+        // inherits history only up to its divergence point, so an introduction
+        // that happens after it was never inherited.
+        brokenFact: {
+          statement: canonDebut
+            ? `Canon introduces ${entity} in "${canonDebut.title}" ` +
+              `(Scene ${canonDebut.sceneNumber}), after this timeline diverged at ` +
+              `"${forkedAt.title}" (Scene ${forkedAt.sceneNumber}) — so this ` +
+              `branch never inherited that introduction.`
+            : `${entity} is introduced nowhere in canon, so no timeline has met them.`,
+          establishedIn: canonDebut ? sourceOf(canonDebut) : sourceOf(forkedAt),
+        },
         suggestedFix: canonDebut
           ? `Introduce ${entity} on this timeline before this scene, or branch ` +
             `from Scene ${canonDebut.sceneNumber} instead so their introduction ` +
@@ -340,6 +393,16 @@ function propPossession(lineage: Scene[]): ComputedFinding[] {
             ? `${where.title} left ${prop} with no holder on this timeline`
             : `${scene.title} — characters: [${scene.characters.join(", ")}] — ${current.holder} is absent`,
         ],
+        // The contradicted claim is the possession event itself: the last thing
+        // this timeline said about where the prop is.
+        brokenFact: {
+          statement: gone
+            ? `${prop} left this timeline in "${where.title}" ` +
+              `(Scene ${where.sceneNumber}): "${current.event.note}"`
+            : `${prop} is in ${current.holder}'s possession as of "${where.title}" ` +
+              `(Scene ${where.sceneNumber}): "${current.event.note}"`,
+          establishedIn: sourceOf(where),
+        },
         suggestedFix: gone
           ? `Remove ${prop} from ${scene.title}'s props, or add a beat before ` +
             `it where ${prop} is recovered.`

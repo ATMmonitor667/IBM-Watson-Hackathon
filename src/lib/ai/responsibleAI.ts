@@ -70,6 +70,16 @@ export const AI_GENERATED_LABEL = "AI-generated — requires human review";
 export const AI_FALLBACK_LABEL = "Demo preview — AI model not called";
 
 /**
+ * The label carried by every AI-authored block in a review surface.
+ *
+ * "AI proposes, human disposes" is a judged criterion, so this sentence appears
+ * on each AI-authored element rather than once per page — a reviewer scrolling
+ * a list of findings must never be more than one card away from it. Lives here
+ * so the wording cannot drift between the two review surfaces that render it.
+ */
+export const AI_PROPOSAL_NOT_APPLIED = "AI proposal — not applied";
+
+/**
  * Link to the IBM responsible AI principles page, for "Learn more" anchors.
  * External URL — safe to use in <a href>.
  */

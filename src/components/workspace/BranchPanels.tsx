@@ -6,6 +6,7 @@ import { useSceneStore } from "@/store/sceneStore";
 import { useUiStore } from "@/store/uiStore";
 import type { Scene, Branch } from "@/types/workspace";
 import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
+import { AI_PROPOSAL_NOT_APPLIED } from "@/lib/ai/responsibleAI";
 import { AppImage } from "@/components/ui/AppImage";
 import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
@@ -304,12 +305,22 @@ export function SceneDetailPanel({
             <p role="alert" className="text-xs text-red-400">{continuityError}</p>
           )}
 
+          {/* Not yet checked. Distinct from "checked and clean" below — the
+              two must never render the same, or a reviewer reads silence as
+              safety. */}
+          {!continuityLoading && !continuityResult && !continuityError && (
+            <p className="text-[11px] text-slate-500">
+              Not checked yet. Runs the rule engine over this branch, then asks
+              watsonx to explain what it found.
+            </p>
+          )}
+
           {continuityResult && (
             <div className="flex flex-col gap-2">
               {continuityResult.findings.length === 0 ? (
                 <p className="flex items-center gap-1.5 text-xs text-emerald-400">
                   <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                  No continuity issues found.
+                  Checked — no continuity issues found.
                 </p>
               ) : (
                 continuityResult.findings.map((f, i) => (
@@ -325,13 +336,25 @@ export function SceneDetailPanel({
                   >
                     <p className="flex items-center gap-1 font-semibold">
                       <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                      <span className="uppercase tracking-widest text-[10px]">
+                        {f.severity}
+                      </span>
+                      <span className="sr-only">severity: </span>
                       {f.title}
+                    </p>
+                    {/* The canon fact this breaks. Without it the finding is an
+                        assertion the reviewer has to take on trust. */}
+                    <p className="mt-1 rounded border border-white/10 bg-slate-900/60 p-1.5 font-mono text-[10px] leading-relaxed text-slate-300">
+                      Breaks canon fact: {f.canonEvidence}
                     </p>
                     <p className="mt-1 leading-relaxed text-[11px] opacity-80">
                       {f.explanation}
                     </p>
                     <p className="mt-1 text-[11px] opacity-70 italic">
-                      Fix: {f.suggestedFix}
+                      Suggested fix: {f.suggestedFix}
+                    </p>
+                    <p className="mt-1.5 border-t border-white/10 pt-1 text-[10px] opacity-70">
+                      {AI_PROPOSAL_NOT_APPLIED}
                     </p>
                   </div>
                 ))
