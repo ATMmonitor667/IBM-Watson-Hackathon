@@ -506,7 +506,11 @@ export function ProjectPageClient({
           </div>
         ) : (
           <div className="min-h-0 flex-1">
-            <ReviewStudio projectId={id} />
+            <ReviewStudio
+              projectId={id}
+              branches={branchesWithFindings}
+              onMergeBranch={handleMergeBranch}
+            />
           </div>
         )}
       </div>
