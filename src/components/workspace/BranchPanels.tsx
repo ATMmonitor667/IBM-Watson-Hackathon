@@ -9,7 +9,8 @@ import { AiDisclaimer } from "@/components/ai/AiDisclaimer";
 import { AppImage } from "@/components/ui/AppImage";
 import { callMergeAssistant } from "@/lib/ai/mergeAssistantClient";
 import type { ContinuityReviewResponse, MergeAssistantResponse, MergeStrategy } from "@/lib/ai/schemas";
-import { buildCanonContext } from "@/lib/ai/contextBuilder";
+import { buildCanonContext, toContextBranch } from "@/lib/ai/contextBuilder";
+import { reviewBranch } from "@/lib/ai/continuityRules";
 
 // ---------------------------------------------------------------------------
 // Focusable element selector (standard interactive elements)
@@ -159,30 +160,29 @@ export function SceneDetailPanel({
     : undefined;
   const isAltBranch = branch && !branch.isCanon;
 
-  // Build a CanonContext for this scene's branch using the canon branch
+  /**
+   * Build the CanonContext for this scene's branch.
+   *
+   * `toContextBranch` carries each scene's derived canon facts across. Mapping
+   * only `sceneNumber` and `title` here — as this did previously — left
+   * `buildCanonContext` with nothing to collect, so every continuity request
+   * shipped `canonFacts: []` and `branchFacts: []`: the model was asked to
+   * check a story it had not been told, and the mock fallback hid it.
+   *
+   * The rule engine's findings go with it, so the model explains a
+   * contradiction that has already been computed rather than hunting for one
+   * (issue #8 / D3).
+   */
   function buildCtx() {
     const canonBranch = branches.find((b) => b.isCanon);
     const targetBranch = branch ?? canonBranch;
     if (!scene || !canonBranch || !targetBranch) return null;
     return buildCanonContext(
-      {
-        name: targetBranch.name,
-        isCanon: targetBranch.isCanon,
-        scenes: targetBranch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
-      },
-      {
-        name: canonBranch.name,
-        isCanon: true,
-        scenes: canonBranch.scenes.map((sc) => ({
-          sceneNumber: sc.sceneNumber,
-          title: sc.title,
-        })),
-      },
+      toContextBranch(targetBranch),
+      toContextBranch(canonBranch),
       scene.projectId,
       "Kael — explorer, mid-30s, worn leather coat, glowing compass on his belt.",
+      reviewBranch(targetBranch, branches),
     );
   }
 

@@ -85,3 +85,56 @@ describe("buildContinuityPrompt", () => {
     expect(prompt).toContain("[scene 4]");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Rule findings — the model explains, it does not find (issue #8 / D3)
+// ---------------------------------------------------------------------------
+
+const CTX_WITH_FINDINGS: CanonContext = {
+  ...BASE_CTX,
+  ruleFindings: [
+    {
+      id: "rule-prop-scene-alt-2b-the-compass",
+      rule: "prop_without_holder",
+      severity: "high",
+      title: "The Compass is used after it leaves this timeline",
+      affectedScene: 7,
+      evidence: [
+        "The Drowned Engine Room — propsUsed: [The Compass, Engine controls]",
+        '"The compass slips off Kael\'s belt" — established in "The Hidden Tunnel" (Scene 6)',
+      ],
+    },
+  ],
+};
+
+describe("buildContinuityPrompt — with computed findings", () => {
+  it("hands the model the contradiction instead of asking it to look", () => {
+    const prompt = buildContinuityPrompt(CTX_WITH_FINDINGS);
+
+    expect(prompt).toContain("CONTRADICTIONS ALREADY DETECTED BY THE RULE ENGINE");
+    expect(prompt).toContain("explain the contradictions listed below");
+    expect(prompt).toContain("Do NOT re-detect them");
+  });
+
+  it("includes each finding's title, severity, scene and evidence", () => {
+    const prompt = buildContinuityPrompt(CTX_WITH_FINDINGS);
+
+    expect(prompt).toContain("The Compass is used after it leaves this timeline");
+    expect(prompt).toContain("[high]");
+    expect(prompt).toContain("scene 7");
+    expect(prompt).toContain("propsUsed: [The Compass, Engine controls]");
+    expect(prompt).toContain("The Hidden Tunnel");
+  });
+
+  it("forbids inventing evidence the engine did not supply", () => {
+    const prompt = buildContinuityPrompt(CTX_WITH_FINDINGS);
+    expect(prompt).toContain("do NOT invent additional evidence");
+  });
+
+  it("falls back to open-ended detection when the engine found nothing", () => {
+    const prompt = buildContinuityPrompt(BASE_CTX);
+
+    expect(prompt).toContain("identify any continuity errors");
+    expect(prompt).not.toContain("CONTRADICTIONS ALREADY DETECTED");
+  });
+});

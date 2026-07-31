@@ -12,8 +12,15 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildCanonContext, findContradictions } from "../contextBuilder";
+import {
+  buildCanonContext,
+  factsFromScene,
+  findContradictions,
+  toContextBranch,
+} from "../contextBuilder";
 import type { ContextBranch } from "../contextBuilder";
+import { reviewBranch } from "../continuityRules";
+import { DEMO_BRANCHES } from "@/lib/mock/demoBranches";
 
 // ---------------------------------------------------------------------------
 // Shared demo fixtures — mirrors the flooded-city story
@@ -303,5 +310,130 @@ describe("buildCanonContext — canon branch as subject", () => {
     const compass = ctx.canonFacts.find((f) => f.key === "compass_state");
     expect(compass!.value).toBe("lost in Scene 4 – given to The Ferryman");
     expect(compass!.lockedInScene).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Workspace adapter — the bug where the continuity route was sent no facts
+// ---------------------------------------------------------------------------
+
+const WORKSPACE_CANON = DEMO_BRANCHES.find((b) => b.isCanon)!;
+const WORKSPACE_TUNNEL = DEMO_BRANCHES.find((b) => b.id === "branch-tunnel")!;
+
+describe("toContextBranch — derives facts from the workspace scene data", () => {
+  it("turns a scene's propEvents into canon-bible fact rows", () => {
+    const scene = WORKSPACE_CANON.scenes[0];
+    const [fact] = factsFromScene(scene);
+
+    expect(fact.key).toBe("compass_state");
+    expect(fact.value).toContain("Kael");
+    expect(fact.lockedInScene).toBe(scene.sceneNumber);
+  });
+
+  it("produces no facts for a scene that establishes no possession", () => {
+    expect(factsFromScene(WORKSPACE_CANON.scenes[1])).toEqual([]);
+  });
+
+  it("the context for a real branch is no longer empty of facts", () => {
+    // The regression this guards: mapping only sceneNumber and title meant
+    // every /api/ai/continuity request shipped canonFacts: [] and
+    // branchFacts: [], so the model had nothing to check against.
+    const ctx = buildCanonContext(
+      toContextBranch(WORKSPACE_TUNNEL),
+      toContextBranch(WORKSPACE_CANON),
+      "demo-1",
+      CHARACTER_SUMMARY
+    );
+
+    expect(ctx.canonFacts.length).toBeGreaterThan(0);
+    expect(ctx.branchFacts.length).toBeGreaterThan(0);
+    expect(ctx.canonFacts.map((f) => f.key)).toContain("compass_state");
+  });
+
+  it("surfaces the branch's compass contradiction against canon", () => {
+    const ctx = buildCanonContext(
+      toContextBranch(WORKSPACE_TUNNEL),
+      toContextBranch(WORKSPACE_CANON),
+      "demo-1",
+      CHARACTER_SUMMARY
+    );
+
+    const [contradiction] = findContradictions(ctx);
+    expect(contradiction.key).toBe("compass_state");
+    expect(contradiction.canonValue).toContain("Kael");
+    expect(contradiction.branchValue).toContain("no longer on this timeline");
+  });
+});
+
+describe("buildCanonContext — carries the rule engine's findings", () => {
+  it("passes computed findings through, resolved to scene numbers", () => {
+    const findings = reviewBranch(WORKSPACE_TUNNEL, DEMO_BRANCHES);
+    const ctx = buildCanonContext(
+      toContextBranch(WORKSPACE_TUNNEL),
+      toContextBranch(WORKSPACE_CANON),
+      "demo-1",
+      CHARACTER_SUMMARY,
+      findings
+    );
+
+    expect(ctx.ruleFindings).toHaveLength(findings.length);
+
+    const compass = ctx.ruleFindings!.find(
+      (f) => f.rule === "prop_without_holder"
+    );
+    expect(compass).toBeDefined();
+    // scene-alt-2b is scene number 7 in the demo data.
+    expect(compass!.affectedScene).toBe(7);
+    expect(compass!.evidence.join(" ")).toContain("propsUsed");
+  });
+
+  it("keeps the engine's evidence verbatim — it is not the model's to revise", () => {
+    const findings = reviewBranch(WORKSPACE_TUNNEL, DEMO_BRANCHES);
+    const ctx = buildCanonContext(
+      toContextBranch(WORKSPACE_TUNNEL),
+      toContextBranch(WORKSPACE_CANON),
+      "demo-1",
+      CHARACTER_SUMMARY,
+      findings
+    );
+
+    for (const [i, finding] of findings.entries()) {
+      expect(ctx.ruleFindings![i].evidence).toEqual(finding.evidence);
+      expect(ctx.ruleFindings![i].title).toBe(finding.title);
+    }
+  });
+
+  it("drops a finding whose scene is not in the context rather than guessing", () => {
+    const ctx = buildCanonContext(
+      toContextBranch(WORKSPACE_TUNNEL),
+      toContextBranch(WORKSPACE_CANON),
+      "demo-1",
+      CHARACTER_SUMMARY,
+      [
+        {
+          id: "rule-orphan",
+          rule: "prop_without_holder",
+          severity: "high",
+          sceneId: "scene-that-does-not-exist",
+          entity: "The Compass",
+          title: "orphan",
+          message: "orphan",
+          evidence: [],
+          suggestedFix: "",
+        },
+      ]
+    );
+
+    expect(ctx.ruleFindings).toEqual([]);
+  });
+
+  it("defaults to no findings when none are supplied", () => {
+    const ctx = buildCanonContext(
+      CLEAN_BRANCH,
+      CANON_BRANCH,
+      "demo-1",
+      CHARACTER_SUMMARY
+    );
+    expect(ctx.ruleFindings).toEqual([]);
   });
 });

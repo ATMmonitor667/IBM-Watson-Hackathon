@@ -13,7 +13,9 @@
  * Tests can run without any environment setup.
  */
 
-import { type CanonContext, type CanonFact } from "./schemas";
+import { type CanonContext, type CanonFact, type RuleFinding } from "./schemas";
+import type { ComputedFinding } from "./continuityRules";
+import type { Branch, Scene } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -24,6 +26,8 @@ import { type CanonContext, type CanonFact } from "./schemas";
  * Matches the subset of src/types/workspace.ts#Scene that the builder needs.
  */
 export interface ContextScene {
+  /** Workspace scene id, used to resolve rule findings to a scene number. */
+  id?: string;
   sceneNumber: number;
   title: string;
   /** Object-state changes established in this scene, keyed by fact key */
@@ -61,7 +65,8 @@ export function buildCanonContext(
   branch: ContextBranch,
   canonBranch: ContextBranch,
   projectId: string,
-  characterSummary: string
+  characterSummary: string,
+  ruleFindings: ComputedFinding[] = []
 ): CanonContext {
   // ------------------------------------------------------------------
   // Collect canon facts (last writer wins within canon scenes)
@@ -109,7 +114,105 @@ export function buildCanonContext(
     branchFacts: Array.from(branchFactMap.values()),
     sceneHistory: [...canonHistory, ...branchOnlyHistory],
     characterSummary,
+    ruleFindings: toRuleFindings(ruleFindings, [
+      ...branch.scenes,
+      ...canonBranch.scenes,
+    ]),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rule findings — what the engine already computed (issue #8 / D3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Carry the rule engine's findings into the context so the model EXPLAINS them
+ * rather than hunting for its own.
+ *
+ * Only the scene id is translated (to the scene number the response schema and
+ * the prompt speak in). Title, severity and evidence pass through untouched:
+ * the evidence is the engine's statement about what the fields say, and it is
+ * not the model's to revise.
+ *
+ * A finding whose scene is not in this context is dropped rather than sent with
+ * a guessed number — a citation a reviewer cannot follow is worse than silence.
+ */
+export function toRuleFindings(
+  findings: ComputedFinding[],
+  scenes: ContextScene[]
+): RuleFinding[] {
+  const numberOf = new Map(
+    scenes.filter((s) => s.id).map((s) => [s.id as string, s.sceneNumber])
+  );
+
+  return findings.flatMap((finding) => {
+    const affectedScene = numberOf.get(finding.sceneId);
+    if (affectedScene === undefined) return [];
+    return [
+      {
+        id: finding.id,
+        rule: finding.rule,
+        severity: finding.severity,
+        title: finding.title,
+        affectedScene,
+        evidence: finding.evidence,
+      },
+    ];
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Workspace adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Turn a workspace `Branch` into the builder's input, deriving canon facts from
+ * the scenes' `propEvents`.
+ *
+ * This is the fix for the bug where the workspace passed only scene numbers and
+ * titles: `buildCanonContext` had nothing to collect, so every continuity
+ * request shipped `canonFacts: []` and `branchFacts: []` and the model was
+ * asked to check a story it had not been told. The facts are DERIVED, not
+ * written out — `propEvents` is the authored story data, the fact rows are a
+ * mechanical projection of it, and the same events feed the rule engine.
+ */
+export function toContextBranch(branch: Branch): ContextBranch {
+  return {
+    name: branch.name,
+    isCanon: branch.isCanon,
+    scenes: branch.scenes.map((scene) => ({
+      id: scene.id,
+      sceneNumber: scene.sceneNumber,
+      title: scene.title,
+      facts: factsFromScene(scene),
+    })),
+  };
+}
+
+/**
+ * `propEvents` as canon-bible rows.
+ *
+ * One key per prop (`compass_state`), so a branch that moves the compass
+ * collides with canon's key and lands in `branchFacts` — which is exactly the
+ * contradiction `findContradictions` is built to surface.
+ */
+export function factsFromScene(scene: Scene): CanonFact[] {
+  return (scene.propEvents ?? []).map((event) => ({
+    key: `${factKey(event.prop)}_state`,
+    value: event.holder
+      ? `in ${event.holder}'s possession — ${event.note}`
+      : `no longer on this timeline — ${event.note}`,
+    lockedInScene: scene.sceneNumber,
+  }));
+}
+
+function factKey(prop: string): string {
+  return prop
+    .replace(/^(the|a|an)\s+/i, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 // ---------------------------------------------------------------------------

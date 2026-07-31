@@ -26,6 +26,27 @@ export const CanonFactSchema = z.object({
 export type CanonFact = z.infer<typeof CanonFactSchema>;
 
 /**
+ * A contradiction the deterministic rule engine already FOUND (issue #8 / D3).
+ *
+ * This travels with the context so the model's job is to EXPLAIN a finding, not
+ * to discover one. The evidence is field values the engine read; the model is
+ * not permitted to revise it, only to say what it means and how to fix it.
+ * `rule` is the engine's rule id, kept as a plain string so the two data models
+ * in this repo (see issue #11) can both feed this contract.
+ */
+export const RuleFindingSchema = z.object({
+  id: z.string().min(1),
+  rule: z.string().min(1),
+  severity: z.string().min(1),
+  title: z.string().min(1),
+  /** Scene number the contradiction lands on, matching `affectedScene`. */
+  affectedScene: z.number().int().positive(),
+  /** Concrete field values, quoted. Never prose the engine invented. */
+  evidence: z.array(z.string()),
+});
+export type RuleFinding = z.infer<typeof RuleFindingSchema>;
+
+/**
  * The full context object sent to every AI route.
  *
  * `canonFacts`       — approved, immutable project-level facts
@@ -33,6 +54,10 @@ export type CanonFact = z.infer<typeof CanonFactSchema>;
  * `sceneHistory`     — ordered list of scene titles already in the sequence
  * `characterSummary` — locked character description for continuity checks
  * `branchName`       — the branch being evaluated ("canon" for the main timeline)
+ * `ruleFindings`     — contradictions the rule engine already computed. Optional
+ *                      so existing callers keep working; when present, the
+ *                      continuity prompt asks the model to explain them rather
+ *                      than to hunt for its own.
  */
 export const CanonContextSchema = z.object({
   projectId: z.string().min(1),
@@ -41,6 +66,7 @@ export const CanonContextSchema = z.object({
   branchFacts: z.array(CanonFactSchema),
   sceneHistory: z.array(z.string()),
   characterSummary: z.string(),
+  ruleFindings: z.array(RuleFindingSchema).optional(),
 });
 export type CanonContext = z.infer<typeof CanonContextSchema>;
 
