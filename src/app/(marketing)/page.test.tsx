@@ -11,5 +11,8 @@ describe("Home", () => {
       screen.getByRole("heading", { name: /explore every possible world/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/collaborative visual-storytelling workspace/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /enter the workspace/i }),
+    ).toHaveAttribute("href", "/projects/demo-1");
   });
 });

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { BookOpen, FolderOpen, GitBranch, LayoutDashboard, Plus, ScanSearch, Settings, Users } from "lucide-react";
+import { BookOpen, Home, Plus } from "lucide-react";
 
 import { CreateProjectForm } from "@/components/workspace/CreateProjectForm";
+import { workspaceHref } from "@/lib/workspaceRoutes";
 import { useProjectStore } from "@/store/projectStore";
 import { useEffect } from "react";
 
@@ -61,20 +62,13 @@ export function WorkspaceSidebar() {
   return (
     <>
       <aside className="flex h-full w-60 shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-slate-900 py-4">
-
         {/* Workspace nav */}
         <SidebarSection title="Workspace">
           <NavLink
-            href="/dashboard"
-            icon={<LayoutDashboard className="size-4" />}
-            label="Dashboard"
-            active={pathname === "/dashboard"}
-          />
-          <NavLink
-            href="/projects"
-            icon={<FolderOpen className="size-4" />}
-            label="All Projects"
-            active={pathname === "/projects"}
+            href="/"
+            icon={<Home className="size-4" />}
+            label="Storyverse home"
+            active={pathname === "/"}
           />
         </SidebarSection>
 
@@ -93,7 +87,7 @@ export function WorkspaceSidebar() {
             projects.map((project) => (
               <NavLink
                 key={project.id}
-                href={`/projects/${project.id}`}
+                href={workspaceHref(project.id)}
                 icon={<BookOpen className="size-4" />}
                 label={project.title}
                 active={activeProjectId === project.id}
@@ -111,52 +105,6 @@ export function WorkspaceSidebar() {
             <span>New project</span>
           </button>
         </SidebarSection>
-
-        {/* Current project quick-links */}
-        {activeProjectId && (
-          <SidebarSection title="Current Project">
-            <NavLink
-              href={`/projects/${activeProjectId}`}
-              icon={<LayoutDashboard className="size-4" />}
-              label="Overview"
-              active={pathname === `/projects/${activeProjectId}`}
-            />
-            <NavLink
-              href={`/projects/${activeProjectId}/scenes`}
-              icon={<BookOpen className="size-4" />}
-              label="Scenes"
-              active={pathname?.startsWith(`/projects/${activeProjectId}/scenes`)}
-            />
-            <NavLink
-              href={`/projects/${activeProjectId}/branches`}
-              icon={<GitBranch className="size-4" />}
-              label="Branches"
-              active={pathname?.startsWith(`/projects/${activeProjectId}/branches`)}
-            />
-            <NavLink
-              href={`/projects/${activeProjectId}/characters`}
-              icon={<Users className="size-4" />}
-              label="Characters"
-              active={pathname?.startsWith(`/projects/${activeProjectId}/characters`)}
-            />
-            <NavLink
-              href={`/projects/${activeProjectId}/review`}
-              icon={<ScanSearch className="size-4" />}
-              label="Review & Merge"
-              active={pathname?.startsWith(`/projects/${activeProjectId}/review`)}
-            />
-          </SidebarSection>
-        )}
-
-        {/* Bottom: settings */}
-        <div className="mt-auto border-t border-white/10 pt-3">
-          <NavLink
-            href="/settings"
-            icon={<Settings className="size-4" />}
-            label="Settings"
-            active={pathname === "/settings"}
-          />
-        </div>
       </aside>
 
       {/* Project creation modal */}

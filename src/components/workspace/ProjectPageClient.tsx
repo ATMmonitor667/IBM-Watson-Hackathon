@@ -1,15 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { BookOpen, RefreshCw, ScanSearch, Users } from "lucide-react";
 
+import { CharacterStudio } from "@/components/character/CharacterStudio";
+import { ReviewStudio } from "@/components/review/ReviewStudio";
 import { BranchTree } from "@/components/workspace/BranchTree";
 import { ProjectHeader } from "@/components/workspace/ProjectHeader";
 import { WorkspacePageSkeleton } from "@/components/workspace/LoadingSkeletons";
 import { ErrorState } from "@/components/workspace/StateViews";
 import { SceneCanvas } from "@/components/workspace/SceneCanvas";
-import { SceneDetailPanel, CreateBranchPanel, CreateScenePanel, MergePreviewPanel } from "@/components/workspace/BranchPanels";
+import {
+  SceneDetailPanel,
+  CreateBranchPanel,
+  CreateScenePanel,
+  MergePreviewPanel,
+} from "@/components/workspace/BranchPanels";
 import { useProjectStore } from "@/store/projectStore";
 import { useUiStore } from "@/store/uiStore";
 import { useActivityStore } from "@/store/activityStore";
@@ -21,14 +29,15 @@ import {
 } from "@/lib/ai/continuityRules";
 import { mergeSelectedScenes } from "@/lib/story/selectiveMerge";
 import { createSceneRevision } from "@/lib/story/sceneRevision";
-import type {
-  Branch,
-  Scene,
-  SceneRevision,
-} from "@/types/workspace";
+import {
+  workspaceViewHref,
+  type WorkspaceView,
+} from "@/lib/workspaceRoutes";
+import type { Branch, Scene, SceneRevision } from "@/types/workspace";
 
 interface ProjectPageClientProps {
   id: string;
+  initialMode?: WorkspaceView;
 }
 
 // Reduced-motion flag (evaluated once)
@@ -36,10 +45,14 @@ const prefersReduced =
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function ProjectPageClient({ id }: ProjectPageClientProps) {
+export function ProjectPageClient({
+  id,
+  initialMode = "story",
+}: ProjectPageClientProps) {
   const { loadProjects, getProject, isLoading, error, dataSource } =
     useProjectStore();
   const [retryKey, setRetryKey] = useState(0);
+  const [activeMode, setActiveMode] = useState<WorkspaceView>(initialMode);
 
   // Branch + scene state — seeded from mock, mutated on branch create / merge
   const [branches, setBranches] = useState<Branch[]>(
@@ -373,104 +386,181 @@ export function ProjectPageClient({ id }: ProjectPageClientProps) {
           collaboratorCount={project.collaborators.length}
         />
 
-        {/* Three-region workspace layout
-            Mobile:  flex-col  (canvas on top, branch tree below)
-            Desktop: flex-row  (side by side) */}
-        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-          {/* Scene canvas area */}
-          <section
-            className="relative flex min-h-0 flex-1 overflow-hidden border-b border-white/10 bg-slate-950 md:border-b-0 md:border-r"
-            aria-label="Scene canvas"
-          >
-            <SceneCanvas
-              scenes={scenesWithFindings}
-              isLoading={isRefreshing}
-              projectTitle={project.title}
-              onAddScene={() => useUiStore.getState().openPanel("create-scene")}
-            />
-            {openPanelId === "create-scene" && (
-              <CreateScenePanel
-                projectId={id}
-                nextSceneNumber={scenes.length + 1}
-                onCreated={handleSceneCreated}
-              />
-            )}
-          </section>
+        <WorkspaceModeNavigation
+          projectId={id}
+          activeMode={activeMode}
+          onChange={setActiveMode}
+        />
 
-          {/* Branch tree area — position:relative so panels anchor here
-              Mobile: full width, fixed height; Desktop: fixed width, full height */}
-          <section
-            className="relative flex h-72 shrink-0 flex-col overflow-hidden bg-slate-900 md:h-auto md:w-[420px]"
-            aria-label="Branch tree"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                Branch Tree
-              </h2>
-              {/* Refresh indicator */}
-              {isRefreshing && (
-                <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                  <RefreshCw className="size-3 animate-spin" aria-hidden="true" />
-                  Refreshing…
-                </span>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden" style={{ height: "100%" }}>
-              <BranchTree branches={branchesWithFindings} />
-            </div>
-
-            {/* Detail / create-branch / merge-preview panels — slide in over the branch tree */}
-            {openPanelId === "scene-detail" && (
-              <SceneDetailPanel
-                scenes={scenesWithFindings}
-                branches={branchesWithFindings}
-                revisions={sceneRevisions}
-                onSceneEdited={handleSceneEdited}
-              />
-            )}
-            {openPanelId === "create-branch" && (
-              <CreateBranchPanel
-                scenes={scenesWithFindings}
-                onBranchCreated={handleBranchCreated}
-              />
-            )}
-            {openPanelId === "merge-preview" && (
-              <MergePreviewPanel
-                branches={branchesWithFindings}
-                onMergeBranch={handleMergeBranch}
-              />
-            )}
-          </section>
-        </div>
-
-        {/* Bottom: activity feed */}
-        <footer
-          className="flex h-10 shrink-0 items-center gap-3 overflow-hidden border-t border-white/10 bg-slate-900 px-5"
-          aria-label="Activity feed"
-          aria-live="polite"
-        >
-          {activityEntries.length > 0 ? (
-            <>
-              <span
-                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
-                  activityEntries[0].type === "merge"
-                    ? "bg-emerald-500/20 text-emerald-300"
-                    : activityEntries[0].type === "branch"
-                      ? "bg-violet-500/20 text-violet-300"
-                      : "bg-slate-700 text-slate-400"
-                }`}
+        {activeMode === "story" ? (
+          <>
+            {/* Three-region workspace layout
+                Mobile:  flex-col  (canvas on top, branch tree below)
+                Desktop: flex-row  (side by side) */}
+            <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+              {/* Scene canvas area */}
+              <section
+                className="relative flex min-h-0 flex-1 overflow-hidden border-b border-white/10 bg-slate-950 md:border-b-0 md:border-r"
+                aria-label="Scene canvas"
               >
-                {activityEntries[0].type}
-              </span>
-              <p className="truncate text-xs text-slate-400">
-                {activityEntries[0].message}
-              </p>
-            </>
-          ) : (
-            <p className="text-xs text-slate-500">No recent activity</p>
-          )}
-        </footer>
+                <SceneCanvas
+                  scenes={scenesWithFindings}
+                  isLoading={isRefreshing}
+                  projectTitle={project.title}
+                  onAddScene={() =>
+                    useUiStore.getState().openPanel("create-scene")
+                  }
+                />
+                {openPanelId === "create-scene" && (
+                  <CreateScenePanel
+                    projectId={id}
+                    nextSceneNumber={scenes.length + 1}
+                    onCreated={handleSceneCreated}
+                  />
+                )}
+              </section>
+
+              {/* Branch tree area — position:relative so panels anchor here
+                  Mobile: full width, fixed height; Desktop: fixed width, full height */}
+              <section
+                className="relative flex h-72 shrink-0 flex-col overflow-hidden bg-slate-900 md:h-auto md:w-[420px]"
+                aria-label="Branch tree"
+              >
+                <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    Branch Tree
+                  </h2>
+                  {/* Refresh indicator */}
+                  {isRefreshing && (
+                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <RefreshCw
+                        className="size-3 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Refreshing…
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="flex-1 overflow-hidden"
+                  style={{ height: "100%" }}
+                >
+                  <BranchTree branches={branchesWithFindings} />
+                </div>
+
+                {/* Detail / create-branch / merge-preview panels — slide in over the branch tree */}
+                {openPanelId === "scene-detail" && (
+                  <SceneDetailPanel
+                    scenes={scenesWithFindings}
+                    branches={branchesWithFindings}
+                    revisions={sceneRevisions}
+                    onSceneEdited={handleSceneEdited}
+                  />
+                )}
+                {openPanelId === "create-branch" && (
+                  <CreateBranchPanel
+                    scenes={scenesWithFindings}
+                    onBranchCreated={handleBranchCreated}
+                  />
+                )}
+                {openPanelId === "merge-preview" && (
+                  <MergePreviewPanel
+                    branches={branchesWithFindings}
+                    onMergeBranch={handleMergeBranch}
+                  />
+                )}
+              </section>
+            </div>
+
+            {/* Bottom: activity feed */}
+            <footer
+              className="flex h-10 shrink-0 items-center gap-3 overflow-hidden border-t border-white/10 bg-slate-900 px-5"
+              aria-label="Activity feed"
+              aria-live="polite"
+            >
+              {activityEntries.length > 0 ? (
+                <>
+                  <span
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
+                      activityEntries[0].type === "merge"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : activityEntries[0].type === "branch"
+                          ? "bg-violet-500/20 text-violet-300"
+                          : "bg-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {activityEntries[0].type}
+                  </span>
+                  <p className="truncate text-xs text-slate-400">
+                    {activityEntries[0].message}
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">No recent activity</p>
+              )}
+            </footer>
+          </>
+        ) : activeMode === "characters" ? (
+          <div className="min-h-0 flex-1">
+            <CharacterStudio projectId={id} />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1">
+            <ReviewStudio projectId={id} />
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+function WorkspaceModeNavigation({
+  projectId,
+  activeMode,
+  onChange,
+}: {
+  projectId: string;
+  activeMode: WorkspaceView;
+  onChange: (mode: WorkspaceView) => void;
+}) {
+  const router = useRouter();
+  const modes = [
+    { id: "story" as const, label: "Story workspace", icon: BookOpen },
+    { id: "characters" as const, label: "Character Studio", icon: Users },
+    { id: "review" as const, label: "Canon Review", icon: ScanSearch },
+  ];
+
+  return (
+    <nav
+      aria-label="Project workspace modes"
+      className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/10 bg-slate-900 px-4 py-2"
+    >
+      {modes.map((mode) => {
+        const Icon = mode.icon;
+        const active = activeMode === mode.id;
+
+        return (
+          <button
+            key={mode.id}
+            type="button"
+            aria-current={active ? "page" : undefined}
+            onClick={() => {
+              onChange(mode.id);
+              router.replace(workspaceViewHref(projectId, mode.id), {
+                scroll: false,
+              });
+            }}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 ${
+              active
+                ? "bg-violet-600/20 text-violet-200"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            }`}
+          >
+            <Icon className="size-3.5" aria-hidden="true" />
+            {mode.label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }

@@ -1,7 +1,11 @@
 import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-import { PROJECT } from "@/lib/demo/fixtures";
+import {
+  DEMO_PROJECT_ID,
+  DEMO_PROJECT_TITLE,
+  workspaceHref,
+} from "@/lib/workspaceRoutes";
 
 export default function Home() {
   return (
@@ -21,13 +25,7 @@ export default function Home() {
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            // MERGE DECISION, STILL OPEN: two workspaces now exist.
-            //   /p/[projectId]     the Obsidian shell — "The Drowned Compass"
-            //   /projects/[id]     the incoming workspace — "The Flooded City"
-            // Kept pointing at the first because PROJECT is already the source
-            // of the title chip below, so the page stays internally consistent.
-            // Whichever workspace the team keeps, this link follows it.
-            href={`/p/${PROJECT.id}`}
+            href={workspaceHref(DEMO_PROJECT_ID)}
             className="inline-flex h-12 items-center gap-2 rounded-full bg-violet-500 px-6 font-medium text-white transition hover:bg-violet-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
           >
             Enter the workspace
@@ -35,7 +33,7 @@ export default function Home() {
           </Link>
           <div className="inline-flex h-12 items-center gap-2 rounded-full border border-white/10 px-6 text-slate-200">
             <GitBranch className="size-4 text-cyan-300" aria-hidden="true" />
-            {PROJECT.title}
+            {DEMO_PROJECT_TITLE}
           </div>
         </div>
       </section>

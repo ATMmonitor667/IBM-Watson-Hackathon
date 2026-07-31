@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { DEMO_PROJECT_ID, workspaceHref } from "@/lib/workspaceRoutes";
 
 export function SignInForm() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/projects/demo-1");
+    router.push(workspaceHref(DEMO_PROJECT_ID));
     router.refresh();
   }
 

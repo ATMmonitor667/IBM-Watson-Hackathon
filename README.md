@@ -9,29 +9,26 @@ AI Builders Challenge with IBM Bob.
 
 ## Current status
 
-The workspace runs end to end against the demo story. Open
-`/p/project-drowned-compass` and you get the Obsidian-style shell — mode rail, story
-explorer, tabbed centre pane, canon panel, status bar, and a Ctrl/Cmd+K palette —
-rendering "The Drowned Compass": two timelines, a locked character reference, and the
-planted continuity contradiction.
+The MVP workspace runs end to end against the demo story. Open
+`/projects/demo-1` to use the single canonical project experience. Its mode switcher keeps
+the complete creator workflow in one place:
 
-Landed:
+- **Story workspace** — create scenes and branches, edit alternate-timeline scenes, inspect
+  revisions, generate panel previews, review continuity flags, and selectively merge
+  creator-approved scenes into canon.
+- **Character Studio** — define and refine the reusable character references that protect
+  visual consistency.
+- **Canon Review** — compare an alternate branch with canon, inspect deterministic and
+  AI-assisted findings, and keep the final decision with the creator.
 
-- **The shared contract** (`src/lib/types/schemas.ts`) — Zod schemas for all eleven MVP
-  entities plus the AI request/response shapes. Every type in the app is inferred from it.
-- **The demo fixtures** (`src/lib/demo/fixtures.ts`) — the whole story as typed data,
-  parsed against the contract in CI.
-- **The data seam** (`src/lib/db/queries.ts`) — the only module that reads data. It
-  returns fixtures today and Supabase later, behind `NEXT_PUBLIC_USE_FIXTURES`, so no
-  component changes when the database lands.
-- **The workspace shell**, driven entirely by that data: timeline switching, scene
-  selection, flagged scenes, canon facts in play, and the revision trail.
-- **Revision-safe branch editing** - collaborators can edit alternate-timeline scenes,
-  while an atomic Supabase function snapshots the previous content, rejects stale edits,
-  and prevents direct canon changes.
+The landing page, sign-in flow, sidebar, and legacy `/p/[projectId]` bookmarks all converge
+on that route. The former standalone character and review URLs also redirect into the same
+workspace instead of exposing competing shells or dead-end navigation.
 
-Next: Supabase schema and auth, the branch tree, the visual diff, the two-stage continuity
-inspector against watsonx, and human-approved selective merge.
+The demo works without credentials. Configured projects load through Supabase; the demo
+fixtures provide a deterministic judge path. The next production-hardening work is real
+authentication, persistent character/review data, the live watsonx model path, and a
+transactional server-side selective merge.
 
 ## How the demo works
 
@@ -178,29 +175,29 @@ necessary, give it a descriptive filename and keep imports explicit.
 src/
   app/
     (marketing)/       Signed-out landing page
-    (app)/p/[projectId]/  The workspace. Its layout fetches the data snapshot.
+    (workspace)/projects/[id]/  Canonical project workspace
+    (app)/p/[projectId]/        Compatibility redirect for old bookmarks
     design/            Component gallery, rendered from the real fixtures
   components/
-    shell/             Rail, sidebars, pane tabs, status bar, command palette
-    story/             SceneCard, SceneCanvas, field diff, state chips
-    review/            FindingCard
+    workspace/         Branch tree, scene editing, project navigation, merge flow
+    characters/        Character Studio and refinement workflow
+    review/            Branch diff, continuity inspector, and Canon Review
     ui/                shadcn primitives, themed to the Storyverse tokens
   lib/
-    types/schemas.ts   THE CONTRACT — Zod schemas, all types inferred from here
-    demo/fixtures.ts   The demo story as typed data
-    db/queries.ts      The only module that reads data
-    store/             workspace.ts (UI state) + workspace-data.tsx (domain snapshot)
-    supabase/          Browser and server Supabase clients
+    projectStore.ts    Explicit deterministic demo data
+    supabase/db.ts     Live project, branch, scene, and revision persistence
+    stores/            Focused client interaction state
+    workspaceRoutes.ts Canonical and compatibility workspace paths
   test/                Shared test setup
 public/demo/           Placeholder panel and reference-sheet art
 ```
 
 ### The one architectural rule
 
-Nothing outside `src/lib/db/` reads data. The project layout fetches one snapshot on the
-server and passes it down; no client component fetches anything. That is what makes
-`NEXT_PUBLIC_USE_FIXTURES` a one-line switch instead of a refactor, and it is also why
-there is no client-side path a key could leak into.
+All project entry points converge on `/projects/[id]`. The workspace uses explicit demo
+fixtures only for `demo-1`; other project IDs load through the Supabase data helpers. Public
+clients use only the anonymous Supabase key and rely on Row Level Security. Service-role
+keys and provider secrets never belong in browser code.
 
 ## Responsible AI and human control
 
@@ -227,7 +224,9 @@ documentation, along with the human decisions and validation applied to its outp
 
 1. ~~Build the story workspace and scene-card model.~~ Done.
 2. ~~Define the shared contract and the demo data.~~ Done.
-3. Add Supabase schema, RLS, authentication, and the staged seed script.
-4. Implement the 2D branch tree over the existing timeline data.
-5. Add the continuity review and visual diff flow against watsonx.
-6. Add the optional Three.js overview after the 2D workflow is reliable.
+3. ~~Add the Supabase schema, RLS, and persistence helpers.~~ Done.
+4. ~~Implement the 2D branch tree, revision history, and selective merge workflow.~~ Done.
+5. ~~Unify Story, Character Studio, and Canon Review under one project route.~~ Done.
+6. Replace the sign-in prototype with a complete Supabase authentication flow.
+7. Persist Character Studio and review decisions and make selective merge transactional.
+8. Connect the reviewed continuity context to the live watsonx model path.

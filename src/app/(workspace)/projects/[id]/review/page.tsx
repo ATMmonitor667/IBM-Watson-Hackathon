@@ -1,4 +1,6 @@
-import { ReviewStudio } from "@/components/review/ReviewStudio";
+import { redirect } from "next/navigation";
+
+import { workspaceViewHref } from "@/lib/workspaceRoutes";
 
 export default async function ReviewPage({
   params,
@@ -6,5 +8,5 @@ export default async function ReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ReviewStudio projectId={id} />;
+  redirect(workspaceViewHref(id, "review"));
 }

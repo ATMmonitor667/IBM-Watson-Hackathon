@@ -14,12 +14,18 @@ const {
   fetchSceneRevisions,
   reviseScene,
   insertBranch,
+  replaceRoute,
 } = vi.hoisted(() => ({
   fetchBranches: vi.fn(),
   fetchScenes: vi.fn(),
   fetchSceneRevisions: vi.fn(),
   reviseScene: vi.fn(),
   insertBranch: vi.fn(),
+  replaceRoute: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceRoute }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -68,6 +74,18 @@ vi.mock("@/components/workspace/LoadingSkeletons", () => ({
 
 vi.mock("@/components/workspace/StateViews", () => ({
   ErrorState: ({ message }: { message: string }) => <div>{message}</div>,
+}));
+
+vi.mock("@/components/character/CharacterStudio", () => ({
+  CharacterStudio: ({ projectId }: { projectId: string }) => (
+    <div>Character workspace for {projectId}</div>
+  ),
+}));
+
+vi.mock("@/components/review/ReviewStudio", () => ({
+  ReviewStudio: ({ projectId }: { projectId: string }) => (
+    <div>Review workspace for {projectId}</div>
+  ),
 }));
 
 vi.mock("@/components/workspace/BranchPanels", () => ({
@@ -279,6 +297,65 @@ describe("ProjectPageClient workspace loading", () => {
     expect(screen.getByTestId("scene-canvas")).not.toBeEmptyDOMElement();
     expect(fetchBranches).not.toHaveBeenCalled();
     expect(fetchScenes).not.toHaveBeenCalled();
+  });
+
+  it("keeps story, character, and review work in one workspace route", async () => {
+    const user = userEvent.setup();
+    useProjectStore.setState({
+      projects: [{ ...project, id: "demo-1", title: "Demo Project" }],
+      dataSource: "mock",
+      mockReason: "no-credentials",
+    });
+
+    render(<ProjectPageClient id="demo-1" />);
+
+    expect(
+      screen.getByRole("button", { name: "Story workspace" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await user.click(
+      screen.getByRole("button", { name: "Character Studio" }),
+    );
+    expect(
+      screen.getByText("Character workspace for demo-1"),
+    ).toBeInTheDocument();
+    expect(replaceRoute).toHaveBeenLastCalledWith(
+      "/projects/demo-1?view=characters",
+      { scroll: false },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Canon Review" }));
+    expect(
+      screen.getByText("Review workspace for demo-1"),
+    ).toBeInTheDocument();
+    expect(replaceRoute).toHaveBeenLastCalledWith(
+      "/projects/demo-1?view=review",
+      { scroll: false },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Story workspace" }));
+    expect(screen.getByTestId("scene-canvas")).toBeInTheDocument();
+    expect(replaceRoute).toHaveBeenLastCalledWith(
+      "/projects/demo-1",
+      { scroll: false },
+    );
+  });
+
+  it("opens a deep-linked workspace mode without showing a parallel page", () => {
+    useProjectStore.setState({
+      projects: [{ ...project, id: "demo-1", title: "Demo Project" }],
+      dataSource: "mock",
+      mockReason: "no-credentials",
+    });
+
+    render(<ProjectPageClient id="demo-1" initialMode="review" />);
+
+    expect(
+      screen.getByRole("button", { name: "Canon Review" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByText("Review workspace for demo-1"),
+    ).toBeInTheDocument();
   });
 
   it("adds the Supabase-saved branch and activity after live creation", async () => {

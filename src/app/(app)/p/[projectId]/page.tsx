@@ -1,9 +1,16 @@
-import { WorkspacePane } from "@/components/shell/workspace-pane";
+import { redirect } from "next/navigation";
+
+import { workspaceHref } from "@/lib/workspaceRoutes";
 
 /**
- * The workspace's centre column. Which pane is on screen is decided by the
- * active tab, not by the route — see components/shell/workspace-pane.tsx.
+ * Preserve previously shared /p links while keeping one workspace
+ * implementation and one data model.
  */
-export default function ProjectPage() {
-  return <WorkspacePane />;
+export default async function LegacyProjectPage({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const { projectId } = await params;
+  redirect(workspaceHref(projectId));
 }

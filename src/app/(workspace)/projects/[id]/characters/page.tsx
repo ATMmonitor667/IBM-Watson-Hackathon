@@ -1,4 +1,6 @@
-import { CharacterStudio } from "@/components/character/CharacterStudio";
+import { redirect } from "next/navigation";
+
+import { workspaceViewHref } from "@/lib/workspaceRoutes";
 
 export default async function CharactersPage({
   params,
@@ -6,5 +8,5 @@ export default async function CharactersPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <CharacterStudio projectId={id} />;
+  redirect(workspaceViewHref(id, "characters"));
 }
