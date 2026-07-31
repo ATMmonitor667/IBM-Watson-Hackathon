@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "check:barrels": "node scripts/check-barrels.mjs",
+    "typecheck": "npm run check:barrels && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "scan:secrets": "node scripts/scan-secrets.mjs"

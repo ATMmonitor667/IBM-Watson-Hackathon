@@ -1,0 +1,9 @@
+{
+  "autoBarrel.enable": false,
+  "autoBarrel.skipRootAndSrc": true,
+  "autoBarrel.ignore": ["src"],
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "**/index.ts",
+    "**/index.tsx"
+  ]
+}
