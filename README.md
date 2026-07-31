@@ -145,18 +145,22 @@ collide on names exported by two different files.
 **Nothing in this codebase imports from a barrel** — every import uses a direct
 path — so these files have no upside here.
 
-`src/test/no-barrel-files.test.ts` fails the suite whenever one reappears, so
-they cannot land silently. That test is a backstop, not a fix. The actual fix is
-to turn the generator off in your editor:
+The repository prevents recurrence at three layers:
 
-- VS Code: find the extension that offers "generate index file" / "auto barrel"
-  behaviour and disable it **for this workspace**.
-- If you cannot identify it, disable extensions one at a time with
-  `Developer: Reload Window` between each, and re-run
-  `npx vitest run src/test/no-barrel-files.test.ts` to see when it stops.
+1. `.vscode/settings.json` disables Auto Barrel and tells the other common
+   auto-barrel generator to skip `src/`. `.vscode/extensions.json` marks both
+   known generators as unwanted for this workspace.
+2. `npm run check:barrels` rejects every `index.ts` or `index.tsx` below `src/`.
+3. `npm run typecheck` runs that guard before TypeScript, and CI runs both the
+   typecheck and regression tests on every branch and pull request.
 
-If a barrel is ever genuinely wanted, add its path to the `ALLOWED` set in that
-test with a comment explaining why.
+Do not install or enable a barrel generator for this workspace. If an editor
+ignores the repository settings, disable its barrel/index generation extension
+for this workspace. Run `npm run check:barrels` to identify every generated
+file that must be removed.
+
+Storyverse intentionally has no barrel allowlist. If a real entry point becomes
+necessary, give it a descriptive filename and keep imports explicit.
 
 ## Project structure
 
