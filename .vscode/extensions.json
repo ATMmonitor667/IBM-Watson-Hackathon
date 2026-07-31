@@ -1,0 +1,7 @@
+{
+  "recommendations": ["dbaeumer.vscode-eslint"],
+  "unwantedRecommendations": [
+    "imgildev.vscode-auto-barrel",
+    "MarianoHilario.auto-barrel-generator"
+  ]
+}
