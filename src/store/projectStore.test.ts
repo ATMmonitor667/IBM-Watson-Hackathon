@@ -16,13 +16,13 @@ import {
 
 const ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ] as const;
 
 function setCredentials(present: boolean) {
   if (present) {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://real-project.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "a".repeat(40);
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "a".repeat(40);
   } else {
     for (const key of ENV_KEYS) delete process.env[key];
   }
@@ -74,6 +74,7 @@ describe("with no Supabase credentials", () => {
     expect(warn.mock.calls[0][0]).toContain("DEMO DATA");
     // The message must name the fix, not just the symptom.
     expect(warn.mock.calls[0][0]).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(warn.mock.calls[0][0]).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   });
 
   it("warns once, not on every reload", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { hasSupabasePublicConfig } from "@/lib/supabase/env";
 import type { Project, ProjectStatus } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +67,7 @@ export type MockReason =
 
 export const MOCK_REASON_TEXT: Record<MockReason, string> = {
   "no-credentials":
-    "No Supabase credentials configured — set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local.",
+    "No Supabase credentials configured — set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.",
   "not-signed-in":
     "Not signed in — sign in to load your own projects from the database.",
   "empty-database":
@@ -115,18 +116,6 @@ export function __resetMockWarnings() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** True when Supabase env vars look real (not placeholder strings). */
-function hasSupabaseCredentials(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
-  return (
-    url.startsWith("https://") &&
-    !url.includes("your-project") &&
-    key.length > 20 &&
-    !key.includes("your_supabase")
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -155,7 +144,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     };
 
     // ── Real Supabase path ────────────────────────────────────────────────
-    if (hasSupabaseCredentials()) {
+    if (hasSupabasePublicConfig()) {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const { fetchProjects } = await import("@/lib/supabase/db");
@@ -195,7 +184,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addProject: async (values) => {
     // ── Real Supabase path ────────────────────────────────────────────────
-    if (hasSupabaseCredentials()) {
+    if (hasSupabasePublicConfig()) {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const { insertProject } = await import("@/lib/supabase/db");
