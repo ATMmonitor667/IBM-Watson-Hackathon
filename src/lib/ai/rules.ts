@@ -18,7 +18,7 @@ import type {
  *   A model alone is unreliable at tracking object state across scenes and
  *                 will sometimes miss the contradiction on the take that counts.
  *
- * Splitting them also means the demo degrades gracefully: with watsonx
+ * Splitting them also means the app degrades gracefully: with the model
  * unavailable the finding still appears, labelled source:'rule'.
  *
  * ---------------------------------------------------------------------------

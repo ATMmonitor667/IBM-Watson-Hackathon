@@ -10,7 +10,7 @@ import {
   RESPONSIBLE_AI_DISCLAIMERS,
   AI_FALLBACK_LABEL,
   AI_GENERATED_LABEL,
-  IBM_RESPONSIBLE_AI_URL,
+  RESPONSIBLE_AI_URL,
   type ResponsibleAIFeature,
 } from "@/lib/ai/responsibleAI";
 
@@ -40,7 +40,7 @@ export function AiDisclaimer({ feature, className = "" }: AiDisclaimerProps) {
       <p className="leading-relaxed">
         {text}{" "}
         <a
-          href={IBM_RESPONSIBLE_AI_URL}
+          href={RESPONSIBLE_AI_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="underline underline-offset-2 hover:text-violet-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"

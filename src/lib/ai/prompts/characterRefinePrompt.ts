@@ -1,7 +1,7 @@
 /**
  * src/lib/ai/prompts/characterRefinePrompt.ts
  *
- * Builds the prompt string sent to the Watsonx model for character refinement.
+ * Builds the prompt string sent to the configured model for character refinement.
  * Pure function — no I/O, easily unit-tested.
  */
 

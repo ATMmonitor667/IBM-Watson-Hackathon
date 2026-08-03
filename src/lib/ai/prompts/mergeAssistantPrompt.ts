@@ -1,7 +1,7 @@
 /**
  * src/lib/ai/prompts/mergeAssistantPrompt.ts
  *
- * Builds the prompt string sent to the Watsonx model for merge assistance.
+ * Builds the prompt string sent to the configured model for merge assistance.
  * Pure function — no I/O, easily unit-tested.
  */
 

@@ -6,7 +6,7 @@ import type { AiReview } from "@/lib/types/schemas";
 /**
  * The continuity inspector's deterministic half, run over a whole project.
  *
- * Stage 2 (the watsonx call that explains each finding and proposes a fix)
+ * Stage 2 (the model call that explains each finding and proposes a fix)
  * lands at step A4 and will slot in here: it takes these findings, enriches
  * `explanation` and `suggested_fix`, and flips `source` to 'rule+model'. The
  * evidence is not the model's to revise, which is why this stage runs first

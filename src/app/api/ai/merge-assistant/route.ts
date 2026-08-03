@@ -3,8 +3,8 @@
  *
  * POST /api/ai/merge-assistant
  *
- * Accepts a CanonContext, calls the Watsonx model (or returns the deterministic
- * mock when AI_MOCK=true), validates the response with Zod, and returns a
+ * Accepts a CanonContext, calls the configured model (or returns the deterministic
+ * mock when AI_PROVIDER=mock), validates the response with Zod, and returns a
  * MergeAssistantResponse.
  *
  * The response always has previewOnly: true (enforced at the type level by
@@ -17,19 +17,19 @@
  *   408 — model request timed out
  *   429 — model rate-limited
  *   502 — model returned malformed / non-schema-conformant JSON
- *   503 — credentials missing (use AI_MOCK=true for demo)
+ *   503 — local model unavailable
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { CanonContextSchema, MergeAssistantResponseSchema } from "@/lib/ai/schemas";
-import { callWatsonx } from "@/lib/ai/provider";
+import { callModel } from "@/lib/ai/provider";
 import { buildMergeAssistantPrompt } from "@/lib/ai/prompts/mergeAssistantPrompt";
 import { MOCK_MERGE_ASSISTANT } from "@/lib/ai/mocks";
 import {
-  WatsonxCredentialError,
-  WatsonxMalformedResponseError,
-  WatsonxRateLimitError,
-  WatsonxTimeoutError,
+  ModelUnavailableError,
+  ModelMalformedResponseError,
+  ModelRateLimitError,
+  ModelTimeoutError,
 } from "@/lib/ai/errors";
 
 export async function POST(req: NextRequest) {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const prompt = buildMergeAssistantPrompt(ctx);
-    const { text } = await callWatsonx({ prompt });
+    const { text } = await callModel({ prompt });
 
     try {
       responseJson = JSON.parse(text);
@@ -74,14 +74,14 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (err) {
-    if (err instanceof WatsonxCredentialError) {
+    if (err instanceof ModelUnavailableError) {
       // Graceful fallback to deterministic mock
       responseJson = MOCK_MERGE_ASSISTANT;
-    } else if (err instanceof WatsonxTimeoutError) {
+    } else if (err instanceof ModelTimeoutError) {
       return NextResponse.json({ error: err.message }, { status: 408 });
-    } else if (err instanceof WatsonxRateLimitError) {
+    } else if (err instanceof ModelRateLimitError) {
       return NextResponse.json({ error: err.message }, { status: 429 });
-    } else if (err instanceof WatsonxMalformedResponseError) {
+    } else if (err instanceof ModelMalformedResponseError) {
       return NextResponse.json(
         { error: err.message, raw: err.raw },
         { status: 502 }

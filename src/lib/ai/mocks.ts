@@ -2,7 +2,7 @@
  * src/lib/ai/mocks.ts
  *
  * Deterministic JSON responses for all three AI routes.
- * Used when AI_MOCK=true (default for tests and demo fallback).
+ * Used when AI_PROVIDER=mock (default for tests and local development).
  * All values reflect the "flooded city / compass" demo scenario.
  */
 

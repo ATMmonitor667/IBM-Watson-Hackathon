@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     // Dark is the shipping theme. The light token set exists so nothing
-    // hardcodes a hex, but it is not QA'd for the hackathon build.
+    // hardcodes a hex, but it is not QA'd for the standalone build.
     <html lang="en" className="dark">
       <body className="antialiased">
         {children}

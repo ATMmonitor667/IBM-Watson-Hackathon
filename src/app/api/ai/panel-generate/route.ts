@@ -4,7 +4,7 @@
  * POST /api/ai/panel-generate
  *
  * Accepts a PanelGenerationRequest body, validates it, then either:
- *   - Returns a deterministic fallback (AI_MOCK=true or useFallback:true)
+ *   - Returns a deterministic fallback (AI_PROVIDER=mock or useFallback:true)
  *   - Calls the image pipeline with the locked context (future integration)
  *
  * HTTP status codes:
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
   const panelReq = parsed.data;
 
   // ------------------------------------------------------------------
-  // 2. Use fallback when AI_MOCK=true or the caller explicitly asked for it
+  // 2. Use fallback in mock mode or when the caller explicitly asked for it
   // ------------------------------------------------------------------
-  const useMock = process.env.AI_MOCK === "true";
+  const useMock = (process.env.AI_PROVIDER?.toLowerCase() || "mock") === "mock";
 
   if (useMock || panelReq.useFallback) {
     const fallbackInput = {

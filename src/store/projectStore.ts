@@ -5,7 +5,7 @@ import { hasSupabasePublicConfig } from "@/lib/supabase/env";
 import type { Project, ProjectStatus } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
-// Static fallback — used when Supabase credentials are absent (AI_MOCK mode)
+// Static fallback used when Supabase credentials are absent in fixture mode.
 // or when the DB returns no rows for a fresh dev environment.
 // ---------------------------------------------------------------------------
 const MOCK_PROJECTS: Project[] = [

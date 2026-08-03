@@ -609,7 +609,7 @@ export const AI_REVIEW: AiReview = {
   kind: "continuity",
   status: "complete",
   findings: [EXPECTED_FINDING],
-  model: "ibm/granite-3-8b-instruct",
+  model: "local/deterministic-preview",
   created_at: "2026-07-27T15:10:00.000Z",
 };
 

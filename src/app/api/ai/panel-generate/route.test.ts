@@ -45,7 +45,7 @@ describe("POST /api/ai/panel-generate", () => {
   });
 
   it("uses the honest fallback in mock mode even without an explicit request", async () => {
-    vi.stubEnv("AI_MOCK", "true");
+    vi.stubEnv("AI_PROVIDER", "mock");
 
     const response = await POST(
       makeRequest({ ...VALID_REQUEST, useFallback: false }),

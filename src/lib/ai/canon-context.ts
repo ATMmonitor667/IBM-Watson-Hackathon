@@ -95,7 +95,7 @@ function toContextScene(scene: SceneWithVersion) {
  * The context as the text the model actually sees.
  *
  * Kept next to the builder so the two can never drift, and written as labelled
- * sections rather than raw JSON — Granite follows an explicitly sectioned
+ * sections rather than raw JSON — instruction-tuned models follow a sectioned
  * brief more reliably than a wall of braces, and a human can read this in a
  * log when a finding looks wrong.
  */

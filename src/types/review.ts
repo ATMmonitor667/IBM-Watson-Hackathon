@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Continuity review + merge types — local/temporary stand-in for Farin's
-// structured watsonx/Granite response contract (continuity findings + merge
+// structured model response contract (continuity findings + merge
 // strategies). Field names are written to match the shapes described in the
 // team plan so swapping in the real AI response later is a drop-in.
 //

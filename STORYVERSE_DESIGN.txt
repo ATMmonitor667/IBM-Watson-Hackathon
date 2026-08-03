@@ -311,7 +311,7 @@ underline indicator here. (Underline tabs are for GitHub-style nav INSIDE a pane
 -----------------
 24px, --sv-chrome, 1px top border, 11px --sv-text-faint.
 Left:  BranchChip for the active branch + its StateChip.
-Right: AI status ("watsonx: ready" / "fallback"), save state, scene count.
+Right: AI status ("local: ready" / "fallback"), save state, scene count.
 Segments separated by 16px. Everything here is informational and non-interactive except the
 branch chip, which opens the branch switcher.
 
@@ -526,4 +526,4 @@ This is track step C1 + W1 in STORYVERSE_IMPLEMENTATION_PLAN.txt.
   reads as one coherent system. No Supabase, no fixtures, no AI.
 
   NOT IN THIS SLICE: real data, auth, the branch tree (React Flow), Character Studio, the
-  real DiffView, anything watsonx. Those come after the contract and fixtures land.
+  real DiffView, or a live model. Those come after the contract and fixtures land.

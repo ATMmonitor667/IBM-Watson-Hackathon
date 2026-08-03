@@ -47,7 +47,7 @@ export function StatusBar() {
             aria-hidden="true"
             className="block size-1.5 rounded-full bg-sv-draft"
           />
-          watsonx: ready
+          AI: local-ready
         </span>
         <span>Saved</span>
       </span>

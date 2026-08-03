@@ -4,14 +4,14 @@ import type { Branch, Scene } from "@/types/workspace";
  * THE CONTINUITY RULE ENGINE (workspace model) — issue #8 / D3.
  *
  * Deterministic continuity checks computed from structured scene fields. It
- * FINDS contradictions; the watsonx call explains them and proposes fixes
+ * FINDS contradictions; the model call explains them and proposes fixes
  * (issue #12 / D4). Each half does what it is actually good at:
  *
  *   Rules alone   cannot explain themselves in narrative terms.
  *   A model alone is unreliable at tracking entity state across scenes and
  *                 will sometimes miss the contradiction on the take that counts.
  *
- * The split also degrades gracefully: with watsonx unavailable the findings
+ * The split also degrades gracefully: with the model unavailable the findings
  * still appear, because nothing here needs the network.
  *
  * ---------------------------------------------------------------------------

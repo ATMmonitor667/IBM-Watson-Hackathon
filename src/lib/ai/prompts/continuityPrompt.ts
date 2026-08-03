@@ -1,7 +1,7 @@
 /**
  * src/lib/ai/prompts/continuityPrompt.ts
  *
- * Builds the prompt string sent to the Watsonx model for continuity review.
+ * Builds the prompt string sent to the configured model for continuity review.
  * Pure function — no I/O, easily unit-tested.
  */
 

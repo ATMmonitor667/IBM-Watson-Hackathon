@@ -1,58 +1,42 @@
-/**
- * src/lib/ai/errors.ts
- *
- * Typed error classes for every failure mode in the Watsonx provider.
- * Catch these in API routes to return the correct HTTP status codes.
- */
-
-/** HTTP 408 / network timeout waiting for a model response */
-export class WatsonxTimeoutError extends Error {
+export class ModelTimeoutError extends Error {
   readonly statusCode = 408;
+
   constructor(timeoutMs: number) {
-    super(`Watsonx request timed out after ${timeoutMs} ms`);
-    this.name = "WatsonxTimeoutError";
+    super(`Model request timed out after ${timeoutMs} ms`);
+    this.name = "ModelTimeoutError";
   }
 }
 
-/** HTTP 429 returned by the Watsonx API — caller should retry with back-off */
-export class WatsonxRateLimitError extends Error {
+export class ModelRateLimitError extends Error {
   readonly statusCode = 429;
+
   constructor(retryAfterSeconds?: number) {
     const hint =
       retryAfterSeconds !== undefined
         ? ` (retry after ${retryAfterSeconds}s)`
         : "";
-    super(`Watsonx rate limit exceeded${hint}`);
-    this.name = "WatsonxRateLimitError";
+    super(`Model rate limit exceeded${hint}`);
+    this.name = "ModelRateLimitError";
   }
 }
 
-/**
- * WATSONX_API_KEY or WATSONX_PROJECT_ID is missing from the environment.
- * Results in HTTP 503 from our routes — the service is intentionally unavailable.
- */
-export class WatsonxCredentialError extends Error {
+export class ModelUnavailableError extends Error {
   readonly statusCode = 503;
-  constructor(missingVars: string[]) {
-    super(
-      `Watsonx credentials missing: ${missingVars.join(", ")}. ` +
-        "Set AI_MOCK=true or provide real credentials."
-    );
-    this.name = "WatsonxCredentialError";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ModelUnavailableError";
   }
 }
 
-/**
- * The model returned a non-JSON body or a body that did not satisfy the
- * expected Zod schema. Results in HTTP 502 from our routes.
- */
-export class WatsonxMalformedResponseError extends Error {
+export class ModelMalformedResponseError extends Error {
   readonly statusCode = 502;
   readonly raw: string;
-  constructor(raw: string, zodMessage?: string) {
-    const hint = zodMessage ? ` — ${zodMessage}` : "";
-    super(`Watsonx response could not be parsed as valid JSON${hint}`);
-    this.name = "WatsonxMalformedResponseError";
+
+  constructor(raw: string, detail?: string) {
+    const hint = detail ? ` — ${detail}` : "";
+    super(`Model response could not be parsed as valid JSON${hint}`);
+    this.name = "ModelMalformedResponseError";
     this.raw = raw;
   }
 }
