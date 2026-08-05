@@ -1,0 +1,293 @@
+﻿STORYVERSE - MASTER TASK LIST
+==============================
+Written: 2026-08-04
+Branch strategy: branch off epic/technical-mvp, complete task, commit, PR/merge.
+
+One task = one branch. Branch names listed under each task.
+Size: S = under 1 hour | M = half day | L = full day
+
+HOW WE WORK
+-----------
+- Pick any unclaimed task below.
+- Create the branch: git checkout -b <branch-name>
+- Complete the task to its DONE criteria.
+- git add, git commit (user pushes).
+- The other person picks the next task off the list.
+- Tasks with DEPENDS must wait for their dependency to land first.
+
+STATUS KEY:  [ ] = not started  [/] = in progress  [x] = done
+
+================================================================================
+SECTION A - STABILIZE  (do these first - unblocks everything)
+================================================================================
+
+[/] A1 - DELETE BARREL FILES                                              SIZE S
+    Branch: fix/a1-delete-barrel-files   <- IN PROGRESS (IBM Bob)
+    DO: Delete src/lib/supabase/index.ts and src/store/index.ts
+        Verify .vscode/settings.json still disables autoBarrel.
+        Run: npm run check:barrels  -> must exit 0.
+    DONE: npm run check:barrels passes.
+
+[ ] A2 - FIX SCENE STATUS TYPE ERROR                                      SIZE S
+    Branch: fix/a2-scene-status-type
+    DEPENDS: A1
+    DO: Open ProjectPageClient.tsx ~line 123.
+        Find the SceneStatus assignment typed as literal "canon".
+        Widen to SceneStatus or narrow at call site.
+        Run: npx tsc --noEmit  -> clean.
+    DONE: npx tsc --noEmit exits 0.
+    FILES: src/components/workspace/ProjectPageClient.tsx
+           src/types/workspace.ts
+
+[ ] A3 - REPAIR 15 FAILING TESTS                                          SIZE M
+    Branch: fix/a3-repair-failing-tests
+    DEPENDS: A1, A4
+    Root causes:
+      1. Supabase test double missing auth.getUser (3 failures in db.test.ts)
+      2. ProjectPageClient.test.tsx - waitFor timeouts (5 failures)
+      3. CharacterCompareView.test.tsx - createClient() throws (1 failure)
+      4. no-barrel-files.test.ts - fixed by A1 (1 failure)
+      5. projectStore.test.ts - old contract (5 failures - fixed by A4)
+    DO: Add auth.getUser stub to Supabase test double.
+        Mock Supabase client in ProjectPageClient tests.
+        Guard createClient() in CharacterCompareView tests.
+        Run: npm test  -> 0 failures.
+    DONE: npm test fully green.
+
+[ ] A4 - DECIDE NO-CREDENTIALS POLICY IN PROJECTSTORE                     SIZE S
+    Branch: fix/a4-no-credentials-policy
+    DO: Restore graceful fallback to fixtures + loud console.warn in projectStore.ts.
+        Update projectStore.test.ts to assert that behaviour.
+        Run: npm test -- projectStore  -> passes.
+    DONE: projectStore.test.ts asserts chosen behaviour and passes.
+    FILES: src/store/projectStore.ts, src/store/projectStore.test.ts
+
+================================================================================
+SECTION D - DE-IBM (D3 before C2/C4; D1 before D2)
+================================================================================
+
+[ ] D1 - REPLACE WATSONX PROVIDER WITH WORKING AI PROVIDER               SIZE M
+    Branch: feat/d1-replace-ai-provider
+    DO: Edit src/lib/ai/provider.ts to call a real API (Claude/OpenAI).
+        Rename callWatsonx -> callModel(prompt).
+        Update error class names in src/lib/ai/errors.ts.
+        Keep AI_MOCK=true path working.
+        Confirm one real round-trip succeeds with latency logged.
+        Update .env.example.
+    DONE: One real AI call succeeds, OR model half deleted + README says deterministic.
+    FILES: src/lib/ai/provider.ts, src/lib/ai/errors.ts, src/lib/ai/mocks.ts
+           src/app/api/ai/*/route.ts, .env.example
+
+[ ] D2 - PURGE IBM REFERENCES FROM DOCS AND CONFIG                        SIZE S
+    Branch: chore/d2-purge-ibm-references
+    DEPENDS: D1
+    DO: Remove WATSONX_* vars from .env.example.
+        Update README.md, docs/ai-architecture.md, CLAUDE.md, AGENTS.md.
+        Archive research/watsonx-challenge-research.md.
+        Delete/rename .claude/agents/watsonx-hackathon-assistant.md.
+    DONE: No IBM/watsonx references in active config or docs.
+
+[ ] D3 - DELETE THE DEAD SECOND IMPLEMENTATION                            SIZE M
+    Branch: chore/d3-delete-dead-stack
+    DEAD FILES (verify unreachable, then delete):
+      src/components/shell/*
+      src/lib/store/workspace.ts
+      src/lib/store/workspace-data.tsx
+      src/lib/db/queries.ts
+      src/lib/ai/rules.ts          (superseded by continuityRules.ts)
+      src/lib/ai/canon-context.ts  (superseded by contextBuilder.ts)
+      src/lib/ai/continuity.ts
+      src/lib/types/schemas.ts     (superseded by src/types/workspace.ts)
+      src/app/(app)/layout.tsx     (pure redirect)
+    CAUTION: Keep src/components/story/ - it straddles both sides.
+    DO: Import-graph check each file. Delete confirmed dead ones.
+        Run: npx tsc --noEmit && npm test  -> still green.
+    DONE: One data model, one shell, one AI module set. Tests green.
+
+================================================================================
+SECTION B - LAND THE BACKEND (written but unverified)
+================================================================================
+
+[ ] B1 - APPLY MVP MIGRATION TO REAL SUPABASE PROJECT                    SIZE M
+    Branch: feat/b1-apply-migration
+    DO: supabase db push on a fresh project.
+        Hand-run all 5 RPCs via Supabase Studio.
+        Confirm storage bucket + policies exist.
+        NEXT_PUBLIC_USE_FIXTURES=0 must render same as =1.
+    DONE: Fresh setup works from README alone.
+    FILES: supabase/migrations/20260731_mvp_backend.sql, supabase/config.toml
+
+[ ] B2 - TEST RLS WITH FOUR IDENTITIES                                    SIZE M
+    Branch: test/b2-rls-four-identities
+    DEPENDS: B1
+    DO: Test owner, collaborator, stranger, anon against every table + bucket.
+        Verify SECURITY DEFINER functions check membership.
+        Document in supabase/rls-test-results.md.
+    DONE: Stranger provably cannot read another project's data.
+
+[ ] B3 - PROVE AUTHENTICATION END TO END                                  SIZE M
+    Branch: test/b3-auth-end-to-end
+    DEPENDS: B1
+    DO: Sign in -> reload persists. Sign out -> redirected.
+        Signed-out /projects/[id] -> /sign-in.
+        Unconfigured -> /sign-in?error=supabase-not-configured.
+    DONE: All four auth scenarios work.
+
+[ ] B4 - IDEMPOTENT STAGED SEED                                           SIZE M
+    Branch: feat/b4-idempotent-seed
+    DEPENDS: B1
+    DO: Wrap every INSERT with ON CONFLICT DO NOTHING.
+        Create 4 named stages: base, branched, reviewed, merged.
+        Re-run seed twice -> no duplicates.
+    DONE: Any demo state restorable with one command, repeatedly.
+    FILES: supabase/seed.sql
+
+================================================================================
+SECTION C - FINISH THE FOUR FEATURES
+================================================================================
+
+[ ] C1 - CHARACTER STUDIO: UPLOAD, REFINE, APPROVE, LOCK, RELOAD-SAFE    SIZE L
+    Branch: feat/c1-character-studio
+    DEPENDS: A3, B1
+    DO: Validate upload type + size. Wire storage upload (db.ts:543).
+        Call create_character_with_version RPC.
+        Keep AI result as unapplied proposal until approved.
+        Wire approve_character_refinement and lock_character_version RPCs.
+        Reload -> everything survives including locked version.
+    DONE: Upload->refine->approve->lock->reload all work with real Supabase.
+    FILES: src/components/character/*, src/store/characterStore.ts, src/lib/supabase/db.ts
+
+[ ] C2 - CONTINUITY REVIEW: WIRED AND EVIDENCE-LINKED                    SIZE M
+    Branch: feat/c2-continuity-review
+    DEPENDS: A3, D3
+    DO: Evidence links from FindingCard jump to affected scene tabs.
+        Label each result: rule / model / both / fallback.
+        Wire to /api/ai/continuity.
+        AI output must never write to canon without approval.
+    DONE: Compass contradiction renders with working evidence links to S3/S4.
+    FILES: src/components/review/*, src/store/reviewStore.ts
+           src/lib/ai/continuityRules.ts, src/app/api/ai/continuity/route.ts
+
+[ ] C3 - TRANSACTIONAL SELECTIVE MERGE                                    SIZE L
+    Branch: feat/c3-selective-merge
+    DEPENDS: B1, B2
+    DO: Remove or label non-transactional fallback in ProjectPageClient.tsx:285.
+        Wire mergeSelectedScenes -> selective_merge RPC.
+        New canon versions, never overwrites. Branch preserved.
+        Reviewer/strategy/scenes/explanation recorded.
+        Activity row in same transaction.
+    DONE: Selecting 2 of 3 changed scenes modifies exactly those two.
+          Transaction completes fully or changes nothing.
+    FILES: src/lib/supabase/db.ts, src/components/workspace/ProjectPageClient.tsx
+           src/lib/story/selectiveMerge.ts
+
+[ ] C4 - FIELD-LEVEL VISUAL DIFF                                          SIZE M
+    Branch: feat/c4-field-level-diff
+    DEPENDS: D3
+    DO: Per-scene status: unchanged/changed/added/removed.
+        Per-field highlighting: dialogue, action, characters, props,
+        emotional beat, location.
+        Link continuity evidence to affected scenes.
+    DONE: Changed scenes show which FIELD changed, not just that something did.
+    FILES: src/components/review/BranchDiffView.tsx
+           src/components/story/field-diff.tsx, src/lib/story/branchDiff.ts
+
+================================================================================
+SECTION E - SHIP
+================================================================================
+
+[ ] E1 - STATES AND ACCESSIBILITY PASS                                    SIZE M
+    Branch: feat/e1-states-and-a11y
+    DO: Loading/empty/error states on ProjectPageClient, CharacterStudio, ReviewStudio.
+        Keyboard tab order audit on every form + modal.
+        aria-label on every icon button.
+        Colour contrast >= 4.5:1 for body text.
+        Animations wrapped in prefers-reduced-motion.
+    DONE: No interactive element keyboard-unreachable. No infinite spinner.
+    FILES: src/components/workspace/LoadingSkeletons.tsx
+           src/components/workspace/StateViews.tsx + every form
+
+[ ] E2 - PROTECT AI ROUTES                                                SIZE S
+    Branch: feat/e2-protect-ai-routes
+    DO: Supabase session check at top of each /api/ai/* route -> 401 if not auth.
+        Simple rate limiter: max 10 req/min per IP -> 429.
+        No raw model text in error responses.
+    DONE: Unauth request gets 401. Rapid-fire gets 429.
+    FILES: src/app/api/ai/*/route.ts
+
+[ ] E3 - ONE END-TO-END SMOKE TEST (PLAYWRIGHT)                          SIZE M
+    Branch: test/e3-e2e-smoke-test
+    DEPENDS: C1, C2, C3, C4
+    DO: Install Playwright. Write e2e/smoke.spec.ts covering:
+        sign-in -> open project -> refine+lock character ->
+        create branch -> edit scene -> continuity review ->
+        view diff -> selective merge.
+        Add npm run e2e to package.json. Run against fixtures.
+    DONE: npm run e2e passes.
+    FILES: e2e/smoke.spec.ts (new), playwright.config.ts (new)
+
+[ ] E4 - REWRITE THE README                                              SIZE M
+    Branch: docs/e4-rewrite-readme
+    DEPENDS: D1, D2
+    DO: Rewrite README with: problem, theme, solution, architecture diagram,
+        setup steps, AI model + data + human approval, responsible-AI controls,
+        limitations, deployed URL.
+        Archive stale planning docs to /archive/ dir.
+    DONE: README alone explains the project to a judge.
+    FILES: README.md, archive/ (move stale .txt files here)
+
+[ ] E5 - DEPLOY AND VERIFY SIGNED OUT                                    SIZE S
+    Branch: feat/e5-deploy
+    DEPENDS: A1, A2, A3
+    DO: Deploy to Vercel. Set all env vars.
+        Open public URL in private browser while signed out -> must not break.
+        Run npm run scan:secrets over full git HISTORY before going public.
+    DONE: Public URL works. Secret scan exits 0.
+
+[ ] E6 - REPLACE PLACEHOLDER ARTWORK                                      SIZE L
+    Branch: feat/e6-real-artwork
+    DO: Create/source original art for 2 panel images (canon S3, what-if S3)
+        and 1 character reference sheet (Wren).
+        Label all prepared art in UI: "Prepared demo asset - not live-generated".
+    NOTE: CUT THIS FIRST if time is short. Honest labelling is acceptable.
+    DONE: No 1x1 placeholder visible during the judge demo path.
+    FILES: public/demo/*
+
+================================================================================
+DEPENDENCY ORDER (recommended)
+================================================================================
+
+1. A1  (unblocks A2, A3, A4 + build gate)
+2. A4  (unblocks A3)
+3. A2  (typecheck green)
+4. A3  (tests green - unblocks C1, C2)
+5. D3  (dead code gone - must happen before C2, C4)
+6. D1  (real AI - unblocks D2, E4)
+7. B1  (migration live - unblocks B2, B3, B4, C1, C3)
+8. B2  (RLS safe - unblocks C3)
+9. B3, B4 (auth + seed)
+10. C1, C2, C3, C4  (the four features)
+11. D2, E1, E2  (polish)
+12. E3  (e2e test - needs C1-C4)
+13. E4  (README rewrite - needs D1, D2)
+14. E5  (deploy)
+15. E6  (artwork - anytime, or cut)
+
+================================================================================
+PROGRESS LOG
+================================================================================
+
+2026-08-04  TASKS.txt created. A1 claimed by IBM Bob (Antigravity).
+
+================================================================================
+COMPLETED
+================================================================================
+
+[x] Issue 1  - Consolidated repo into one workspace (epic/unified-workspace)
+[x] P1       - Shared Zod type contract (src/lib/types/schemas.ts)
+[x] P2       - Demo fixtures (src/lib/demo/fixtures.ts)
+[x] R1       - Pane routing (rail + tabs)
+[x] R2       - Scene detail pane
+[x] R3       - Canon context builder
+[x] R4       - Deterministic rule engine
+[x] R8       - Activity feed pane
