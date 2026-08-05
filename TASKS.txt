@@ -1,4 +1,4 @@
-﻿STORYVERSE - MASTER TASK LIST
+STORYVERSE - MASTER TASK LIST
 ==============================
 Written: 2026-08-04
 Branch strategy: branch off epic/technical-mvp, complete task, commit, PR/merge.
@@ -54,7 +54,7 @@ SECTION A - STABILIZE  (do these first - unblocks everything)
         Run: npm test  -> 0 failures.
     DONE: npm test fully green.
 
-[ ] A4 - DECIDE NO-CREDENTIALS POLICY IN PROJECTSTORE                     SIZE S
+[x] A4 - DECIDE NO-CREDENTIALS POLICY IN PROJECTSTORE                     SIZE S
     Branch: fix/a4-no-credentials-policy
     DO: Restore graceful fallback to fixtures + loud console.warn in projectStore.ts.
         Update projectStore.test.ts to assert that behaviour.
