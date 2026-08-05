@@ -27,13 +27,13 @@ import {
   continuityFlagsFor,
   withComputedFlags,
 } from "@/lib/ai/continuityRules";
-import { mergeSelectedScenes } from "@/lib/story/selectiveMerge";
+import { mergeSelectedScenes as mergeSelectedScenesLocally } from "@/lib/story/selectiveMerge";
 import { createSceneRevision } from "@/lib/story/sceneRevision";
 import {
   workspaceViewHref,
   type WorkspaceView,
 } from "@/lib/workspaceRoutes";
-import type { Branch, Scene, SceneRevision } from "@/types/workspace";
+import type { Branch, Scene, SceneRevision, SceneStatus } from "@/types/workspace";
 
 interface ProjectPageClientProps {
   id: string;
@@ -72,6 +72,7 @@ export function ProjectPageClient({
 
   const openPanelId   = useUiStore((s) => s.openPanelId);
   const addActivity    = useActivityStore((s) => s.addEntry);
+  const setActivityEntries = useActivityStore((s) => s.setEntries);
   const activityEntries = useActivityStore((s) => s.entries);
 
   const handleBranchCreated = useCallback(
@@ -105,11 +106,48 @@ export function ProjectPageClient({
   );
 
   const handleSceneCreated = useCallback(
-    (scene: Scene) => {
-      setScenes((prev) => [...prev, scene]);
-      addActivity({ message: `Scene #${scene.sceneNumber} "${scene.title}" added`, type: "scene" });
+    async (scene: Scene) => {
+      const canonBranch = branches.find((branch) => branch.isCanon);
+      if (!canonBranch) throw new Error("Canon branch is unavailable");
+
+      let savedScene: Scene = { ...scene, status: "canon" as SceneStatus };
+      if (dataSource === "supabase") {
+        const [
+          { createClient },
+          { insertActivity, insertScene },
+        ] = await Promise.all([
+          import("@/lib/supabase/client"),
+          import("@/lib/supabase/db"),
+        ]);
+        const client = createClient();
+        savedScene = await insertScene(
+          client,
+          canonBranch.id,
+          savedScene,
+          scene.contributor.displayName,
+        );
+        await insertActivity(
+          client,
+          id,
+          "scene",
+          `Scene #${savedScene.sceneNumber} "${savedScene.title}" added`,
+        );
+      }
+
+      setScenes((prev) => [...prev, savedScene]);
+      setBranches((current) =>
+        current.map((branch) =>
+          branch.id === canonBranch.id
+            ? { ...branch, scenes: [...branch.scenes, savedScene] }
+            : branch,
+        ),
+      );
+      addActivity({
+        message: `Scene #${savedScene.sceneNumber} "${savedScene.title}" added`,
+        type: "scene",
+      });
     },
-    [addActivity],
+    [addActivity, branches, dataSource, id],
   );
 
   const handleSceneEdited = useCallback(
@@ -139,7 +177,9 @@ export function ProjectPageClient({
             title: editedScene.title,
             location: editedScene.location,
             dialogueExcerpt: editedScene.dialogueExcerpt,
+            action: editedScene.action,
             characters: editedScene.characters,
+            propsUsed: editedScene.propsUsed,
             emotionalBeat: editedScene.emotionalBeat,
           },
           editedScene.contributor.displayName,
@@ -191,9 +231,58 @@ export function ProjectPageClient({
 
       setIsRefreshing(true);
 
+      if (dataSource === "supabase") {
+        try {
+          const [
+            { createClient },
+            {
+              fetchActivity,
+              fetchBranches,
+              fetchSceneRevisions,
+              fetchScenes,
+              mergeSelectedScenes,
+            },
+          ] = await Promise.all([
+            import("@/lib/supabase/client"),
+            import("@/lib/supabase/db"),
+          ]);
+          const client = createClient();
+          await mergeSelectedScenes(client, {
+            branchId,
+            sceneIds: selectedSceneIds,
+            explanation:
+              "Human reviewer confirmed this selective merge from the story workspace.",
+          });
+          const [
+            loadedBranches,
+            loadedScenes,
+            loadedRevisions,
+            loadedActivity,
+          ] = await Promise.all([
+            fetchBranches(client, id),
+            fetchScenes(client, id),
+            fetchSceneRevisions(client, id),
+            fetchActivity(client, id),
+          ]);
+          setBranches(loadedBranches);
+          setScenes(loadedScenes);
+          setSceneRevisions(loadedRevisions);
+          setActivityEntries(loadedActivity);
+
+          const { toast } = await import("sonner");
+          toast.success(`Selected scenes merged from "${branch.name}"`, {
+            description:
+              `${selectedSceneIds.length} scene(s) changed canon; unchecked scenes were left on the branch.`,
+          });
+        } finally {
+          setIsRefreshing(false);
+        }
+        return;
+      }
+
       await new Promise((r) => setTimeout(r, prefersReduced ? 0 : 600));
       const mergedAt = new Date().toISOString();
-      const result = mergeSelectedScenes(
+      const result = mergeSelectedScenesLocally(
         canonBranch,
         branch,
         selectedSceneIds,
@@ -254,7 +343,7 @@ export function ProjectPageClient({
           "unchecked scenes were left on the branch.",
       });
     },
-    [branches, addActivity],
+    [branches, addActivity, dataSource, id, setActivityEntries],
   );
 
   /**
@@ -309,23 +398,35 @@ export function ProjectPageClient({
       try {
         const [
           { createClient },
-          { fetchBranches, fetchScenes, fetchSceneRevisions },
+          {
+            fetchActivity,
+            fetchBranches,
+            fetchScenes,
+            fetchSceneRevisions,
+          },
         ] =
           await Promise.all([
             import("@/lib/supabase/client"),
             import("@/lib/supabase/db"),
           ]);
         const client = createClient();
-        const [loadedBranches, loadedScenes, loadedRevisions] = await Promise.all([
+        const [
+          loadedBranches,
+          loadedScenes,
+          loadedRevisions,
+          loadedActivity,
+        ] = await Promise.all([
           fetchBranches(client, id),
           fetchScenes(client, id),
           fetchSceneRevisions(client, id),
+          fetchActivity(client, id),
         ]);
 
         if (cancelled) return;
         setBranches(loadedBranches);
         setScenes(loadedScenes);
         setSceneRevisions(loadedRevisions);
+        setActivityEntries(loadedActivity);
         setLoadedWorkspaceKey(workspaceKey);
       } catch (loadError) {
         if (cancelled) return;
@@ -343,7 +444,7 @@ export function ProjectPageClient({
     return () => {
       cancelled = true;
     };
-  }, [dataSource, id, workspaceKey]);
+  }, [dataSource, id, setActivityEntries, workspaceKey]);
 
   if (isLoading || loadedWorkspaceKey !== workspaceKey) {
     return <WorkspacePageSkeleton />;
@@ -506,7 +607,11 @@ export function ProjectPageClient({
           </div>
         ) : (
           <div className="min-h-0 flex-1">
-            <ReviewStudio projectId={id} />
+          <ReviewStudio
+            projectId={id}
+            branches={branchesWithFindings}
+            onMerged={() => setRetryKey((key) => key + 1)}
+          />
           </div>
         )}
       </div>
